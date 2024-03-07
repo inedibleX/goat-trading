@@ -1,4 +1,5 @@
 ds-test/=lib/forge-std/lib/ds-test/src/
 eth-gas-reporter/=node_modules/eth-gas-reporter/
 forge-std/=lib/forge-std/src/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 hardhat/=node_modules/hardhat/
