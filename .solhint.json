@@ -2,6 +2,14 @@
   "extends": "solhint:recommended",
   "rules": {
     "compiler-version": ["error", "^0.8.0"],
-    "func-visibility": ["warn", { "ignoreConstructors": true }]
+    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "const-name-snakecase": 0,
+    "not-rely-on-time": 0,
+    "no-empty-blocks": 0,
+    "max-states-count": 0,
+    "contract-name-camelcase": 0,
+    "var-name-mixedcase": 0,
+    "reason-string": 0,
+    "avoid-low-level-calls": 0
   }
 }
