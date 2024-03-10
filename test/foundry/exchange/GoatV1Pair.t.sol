@@ -27,6 +27,7 @@ contract GoatExchangeTest is Test {
     uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
     uint32 private constant _MAX_UINT32 = type(uint32).max;
     uint32 private constant _VESTING_PERIOD = 7 days;
+    uint32 private constant _MIN_LOCK_PERIOD = 2 days;
     GoatV1Factory factory;
     GoatV1Pair pair;
     MockERC20 goat;
@@ -815,6 +816,35 @@ contract GoatExchangeTest is Test {
         assertEq(feesPerTokenPaidLp, feesPerTokenStored);
     }
 
+    function testTransferFeesToTreasury() public {
+        //
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        _mintInitialLiquidity(initParams, users.lp);
+
+        uint256 tresauryBalBefore = weth.balanceOf(users.treasury);
+
+        uint256 wethAmount = 100e18;
+        uint256 expectedTokenOut = (wethAmount * 250e18) / (initParams.initialEth + wethAmount);
+        uint256 wethAmountWithFees = (wethAmount * 10000) / 9901;
+
+        uint256 lpFees = ((wethAmountWithFees - wethAmount) * 40 / 100);
+        uint256 treasuryFees = wethAmountWithFees - wethAmount - lpFees;
+
+        vm.startPrank(users.alice);
+        vm.deal(users.alice, wethAmountWithFees);
+        weth.deposit{value: wethAmountWithFees}();
+        weth.transfer(address(pair), wethAmountWithFees);
+        pair.swap(expectedTokenOut, 0, users.alice);
+        vm.stopPrank();
+
+        uint256 tresauryBalAfter = weth.balanceOf(users.treasury);
+        assertEq(treasuryFees, tresauryBalAfter - tresauryBalBefore);
+    }
+
     /* ------------------------------- WITHDRAW EXCESS TOKEN TESTS ------------------------------ */
     function testWithdrawExcessTokenSuccess() public {
         GoatTypes.InitParams memory initParams;
@@ -1107,5 +1137,114 @@ contract GoatExchangeTest is Test {
 
         GoatTypes.InitialLPInfo memory lpInfo = pair.getInitialLPInfo();
         assertEq(lpInfo.liquidityProvider, users.lp1);
+    }
+
+    /* ------------------------------- VIEW FUNCTION TESTS ------------------------------ */
+
+    function testVestingUntil() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        uint256 vestingUntil = pair.vestingUntil();
+        assertEq(vestingUntil, block.timestamp + _VESTING_PERIOD);
+    }
+
+    function testGetStateInfoForPresale() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        uint256 tokenAmountForAmm = 250e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+        (
+            uint256 reserveEth,
+            uint256 reserveToken,
+            uint256 virtualEth,
+            uint256 initialTokenMatch,
+            uint256 bootstrapEth,
+            uint256 virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        assertEq(reserveEth, initParams.initialEth);
+        assertEq(reserveToken, tokenAmountForAmm);
+        assertEq(virtualEth, initParams.virtualEth);
+        assertEq(initialTokenMatch, initParams.initialTokenMatch);
+        assertEq(bootstrapEth, initParams.bootstrapEth);
+        assertEq(virtualToken, 250e18);
+    }
+
+    function testGetReservesWhenPoolIsAnAmm() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        uint256 tokenAmountForAmm = 250e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        assertEq(reserveEth, initParams.initialEth);
+        assertEq(reserveToken, tokenAmountForAmm);
+    }
+
+    function testGetReservesWhenPoolIsInPresale() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        assertEq(reserveEth, initParams.virtualEth);
+        assertEq(reserveToken, initParams.initialTokenMatch);
+    }
+
+    function testGetPresaleBalance() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        // swap 5 eth for tokens
+        uint256 wethAmount = 5e18;
+        uint256 expectedTokenOut = (wethAmount * initParams.initialTokenMatch) / (initParams.virtualEth + wethAmount);
+        uint256 wethAmountWithFees = (wethAmount * 10000) / 9901;
+
+        vm.startPrank(users.alice);
+        vm.deal(users.alice, wethAmountWithFees);
+        weth.deposit{value: wethAmountWithFees}();
+        weth.transfer(address(pair), wethAmountWithFees);
+        pair.swap(expectedTokenOut, 0, users.alice);
+        vm.stopPrank();
+
+        uint256 presaleBalance = pair.getPresaleBalance(users.alice);
+
+        assertEq(presaleBalance, expectedTokenOut);
+    }
+
+    function testLockedUntil() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        uint256 lockedUntil = pair.lockedUntil(users.lp);
+        assertEq(lockedUntil, block.timestamp + _MIN_LOCK_PERIOD);
     }
 }

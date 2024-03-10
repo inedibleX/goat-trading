@@ -63,7 +63,6 @@ contract GoatTypes {
         bool isNewPair;
         address pair;
         uint256 actualTokenAmount;
-        uint256 wethAmountInitial;
         uint256 tokenAmount;
         uint256 wethAmount;
         uint256 liquidity;
