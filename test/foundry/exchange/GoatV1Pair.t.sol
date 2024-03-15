@@ -690,7 +690,10 @@ contract GoatExchangeTest is Test {
         assertGe(vars.actualK, vars.desiredK);
         // at this point as pool has converted to an Amm the lp balance should be
         // equal to the sqrt of the product of the reserves
-        expectedLpBalance = Math.sqrt(initParams.bootstrapEth * vars.tokenAmountAtAmm) - MINIMUM_LIQUIDITY;
+        uint256 pairTokenBalance = goat.balanceOf(address(pair));
+        uint256 pairWethBalance = weth.balanceOf(address(pair));
+        uint256 wethReserve = pairWethBalance - pair.getPendingLiquidityFees() - pair.getPendingProtocolFees();
+        expectedLpBalance = Math.sqrt(wethReserve * pairTokenBalance) - MINIMUM_LIQUIDITY;
         lpBalance = pair.balanceOf(users.lp);
 
         assertEq(lpBalance, expectedLpBalance);
@@ -1246,5 +1249,75 @@ contract GoatExchangeTest is Test {
 
         uint256 lockedUntil = pair.lockedUntil(users.lp);
         assertEq(lockedUntil, block.timestamp + _MIN_LOCK_PERIOD);
+    }
+
+    function testMultipleSwapToChangePoolFromPresaleToAmm() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+        //Do multiple swap with small amount
+        uint256 amountWethIn = 1e18;
+        for (uint256 i = 0; i < 12; i++) {
+            if (pair.vestingUntil() != type(uint32).max) break;
+
+            deal(address(weth), users.alice, amountWethIn);
+            (
+                uint112 reserveEth,
+                uint112 reserveToken,
+                uint112 virtualEth,
+                uint112 initialTokenMatch,
+                uint112 bootstrapEth,
+                uint256 virtualToken
+            ) = pair.getStateInfoForPresale();
+            uint256 amountTokenOut = GoatLibrary.getTokenAmountOutPresale(
+                amountWethIn, virtualEth, reserveEth, bootstrapEth, reserveToken, virtualToken, 250e18
+            );
+
+            vm.startPrank(users.alice);
+            weth.transfer(address(pair), amountWethIn);
+            pair.swap(amountTokenOut, 0, users.alice);
+            vm.stopPrank();
+        }
+    }
+
+    function testMultipleSwapToChangePoolFromPresaleToAmm1() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 1000e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 100000000e18;
+        initParams.bootstrapEth = 100e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+        //Do multiple swap with different amounts
+        uint256 firstWethIn = 630964583403437119;
+        uint256 secondWethIn = 99999999999999999997;
+        uint256 thirdWethIn = 5803;
+        for (uint256 i = 0; i < 3; i++) {
+            if (pair.vestingUntil() != _MAX_UINT32) break;
+            uint256 amountWethIn = i == 0 ? firstWethIn : i == 1 ? secondWethIn : thirdWethIn;
+            console2.log("here");
+            _fundMe(weth, users.alice, amountWethIn);
+
+            (
+                uint112 reserveEth,
+                uint112 reserveToken,
+                uint112 virtualEth,
+                uint112 initialTokenMatch,
+                uint112 bootstrapEth,
+                uint256 virtualToken
+            ) = pair.getStateInfoForPresale();
+            uint256 tokenAmountForAmm = GoatLibrary.getTokenAmountForAmm(virtualEth, bootstrapEth, initialTokenMatch);
+            uint256 amountTokenOut = GoatLibrary.getTokenAmountOutPresale(
+                amountWethIn, virtualEth, reserveEth, bootstrapEth, reserveToken, virtualToken, tokenAmountForAmm
+            );
+            vm.startPrank(users.alice);
+            weth.transfer(address(pair), amountWethIn);
+            pair.swap(amountTokenOut, 0, users.alice);
+            vm.stopPrank();
+        }
     }
 }

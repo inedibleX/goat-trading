@@ -290,9 +290,13 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             : swapVars.initialReserveToken + swapVars.amountTokenIn;
 
         swapVars.bootstrapEth = _bootstrapEth;
-        if (swapVars.isPresale && swapVars.finalReserveEth >= swapVars.bootstrapEth) {
+        // presale lp fees should go to reserve eth
+        if (swapVars.isPresale) {
+            swapVars.finalReserveEth += swapVars.lpFeesCollected;
             // at this point pool should be changed to an AMM
-            _checkAndConvertPool(swapVars.finalReserveEth, swapVars.finalReserveToken);
+            if (swapVars.finalReserveEth >= swapVars.bootstrapEth) {
+                _checkAndConvertPool(swapVars.finalReserveEth, swapVars.finalReserveToken);
+            }
         } else {
             // check for K
             swapVars.initialTokenMatch = _initialTokenMatch;
@@ -308,10 +312,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             ) {
                 revert GoatErrors.KInvariant();
             }
-        }
-        // presale lp fees should go to reserve eth
-        if (swapVars.isPresale) {
-            swapVars.finalReserveEth += swapVars.lpFeesCollected;
         }
         _update(swapVars.finalReserveEth, swapVars.finalReserveToken, true);
         // TODO: Emit swap event with similar details to uniswap v2 after audit
@@ -648,6 +648,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     function _checkAndConvertPool(uint256 initialReserveEth, uint256 initialReserveToken) internal {
         uint256 tokenAmtForAmm;
         uint256 kForAmm;
+
         if (initialReserveEth >= _bootstrapEth) {
             (, tokenAmtForAmm) = _tokenAmountsForLiquidityBootstrap(_virtualEth, _bootstrapEth, 0, _initialTokenMatch);
             kForAmm = _bootstrapEth * tokenAmtForAmm;
@@ -685,6 +686,9 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             uint256 numerator = (initialEth * initialTokenMatch);
             uint256 denominator = virtualEth + initialEth;
             uint256 tokenAmountOut = numerator / denominator;
+            // TODO: if initial eth <= bootstrap eth tokenAmountOut will never be
+            // less than tokenAmtForPresale so below code can changed to
+            // tokenAmtForPresale -= tokenAmountOut;
             if (tokenAmtForPresale > tokenAmountOut) {
                 tokenAmtForPresale -= tokenAmountOut;
             } else {
