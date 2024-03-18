@@ -186,12 +186,9 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         // to address so _lastPoolTokenSender is used
         if (_vestingUntil == _MAX_UINT32) revert GoatErrors.PresalePeriod();
 
-        uint256 balanceEth = IERC20(_weth).balanceOf(address(this));
-        uint256 balanceToken = IERC20(_token).balanceOf(address(this));
-
         uint256 totalSupply_ = totalSupply();
-        amountWeth = (liquidity * balanceEth) / totalSupply_;
-        amountToken = (liquidity * balanceToken) / totalSupply_;
+        amountWeth = (liquidity * _reserveEth) / totalSupply_;
+        amountToken = (liquidity * _reserveToken) / totalSupply_;
         if (amountWeth == 0 || amountToken == 0) {
             revert GoatErrors.InsufficientLiquidityBurned();
         }
@@ -202,8 +199,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         // Transfer liquidity tokens to the user
         IERC20(_weth).safeTransfer(to, amountWeth);
         IERC20(_token).safeTransfer(to, amountToken);
-        balanceEth = IERC20(_weth).balanceOf(address(this));
-        balanceToken = IERC20(_token).balanceOf(address(this));
+        uint256 balanceEth = IERC20(_weth).balanceOf(address(this));
+        uint256 balanceToken = IERC20(_token).balanceOf(address(this));
 
         _update(balanceEth, balanceToken, false);
 
@@ -757,14 +754,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             uint256 numerator = (initialEth * initialTokenMatch);
             uint256 denominator = virtualEth + initialEth;
             uint256 tokenAmountOut = numerator / denominator;
-            // TODO: if initial eth <= bootstrap eth tokenAmountOut will never be
-            // less than tokenAmtForPresale so below code can changed to
-            // tokenAmtForPresale -= tokenAmountOut;
-            if (tokenAmtForPresale > tokenAmountOut) {
-                tokenAmtForPresale -= tokenAmountOut;
-            } else {
-                tokenAmtForPresale = 0;
-            }
+            tokenAmtForPresale -= tokenAmountOut;
         }
     }
 
