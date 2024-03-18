@@ -750,9 +750,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     ) internal pure returns (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) {
         uint256 k = virtualEth * initialTokenMatch;
         tokenAmtForPresale = initialTokenMatch - (k / (virtualEth + bootstrapEth));
-        tokenAmtForAmm = ((k / (virtualEth + bootstrapEth)) / (virtualEth + bootstrapEth)) * bootstrapEth;
-        // uint256 totalEth = virtualEth + bootstrapEth;
-        // tokenAmtForAmm = (k * bootstrapEth) / (totalEth * totalEth);
+        uint256 totalEth = virtualEth + bootstrapEth;
+        tokenAmtForAmm = (k * bootstrapEth) / (totalEth * totalEth);
 
         if (initialEth != 0) {
             uint256 numerator = (initialEth * initialTokenMatch);
