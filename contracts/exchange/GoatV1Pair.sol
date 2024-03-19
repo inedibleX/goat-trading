@@ -408,12 +408,12 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      *   initial conditions. It requires the new team to match the initial liquidity
      *   provider's WETH amount and exceed their token contribution by at least 10%.
      *   This function also resets the pool's initial liquidity parameters.
-     * @param tokenAmount The amount of tokens being added to take over the pool.
      * @param initParams The new initial parameters for the pool.
      * Requirements:
      * - Pool must be in presale period.
-     * - `initParams.initialEth` must exactly match the initial liquidity provider's WETH contribution.
      * - The `tokenAmount` must be at least 10% greater and equal to bootstrap token needed for new params.
+     * - Tokens must be transferred to the pool before calling this function.
+     * - `initParams.initialEth` must exactly match the initial liquidity provider's WETH contribution.
      * Reverts:
      * - If the pool has already transitioned to an AMM.
      * - If `tokenAmount` is less than the minimum required to take over the pool.
@@ -425,7 +425,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * - Resets the pool's initial liquidity parameters to the new `initParams`.
      * - Updates the pool's reserves to reflect the new token balance.
      */
-    function takeOverPool(uint256 tokenAmount, GoatTypes.InitParams memory initParams) external {
+    function takeOverPool(GoatTypes.InitParams memory initParams) external {
         if (_vestingUntil != _MAX_UINT32) {
             revert GoatErrors.ActionNotAllowed();
         }
@@ -452,20 +452,26 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         // team needs to add min 10% more tokens than the initial lp to take over
         localVars.minTokenNeeded =
             ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 11000) / 10000;
+        uint256 tokenAmount = IERC20(_token).balanceOf(address(this)) - _reserveToken;
         if (tokenAmount < localVars.minTokenNeeded) {
             revert GoatErrors.InsufficientTakeoverTokenAmount();
         }
 
         // new token amount for presale if initParams are changed
         (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
-            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+            initParams.virtualEth, initParams.bootstrapEth, _reserveEth, initParams.initialTokenMatch
         );
 
-        if (tokenAmount != (localVars.tokenAmountForPresaleNew + localVars.tokenAmountForAmmNew)) {
+        if (
+            tokenAmount
+                != (
+                    localVars.tokenAmountForPresaleNew + localVars.tokenAmountForAmmNew - localVars.tokenAmountForPresaleOld
+                        - localVars.tokenAmountForAmmOld + _reserveToken
+                )
+        ) {
             revert GoatErrors.IncorrectTokenAmount();
         }
 
-        IERC20(_token).safeTransferFrom(to, address(this), tokenAmount);
         if (initParams.initialEth != 0) {
             // Transfer weth directly to the initial lp
             IERC20(_weth).safeTransferFrom(to, initialLpInfo.liquidityProvider, initialLpInfo.initialWethAdded);

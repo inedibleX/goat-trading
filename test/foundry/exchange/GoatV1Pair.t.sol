@@ -1038,7 +1038,7 @@ contract GoatExchangeTest is Test {
         initParams.initialEth = 0;
         vm.startPrank(users.lp1);
         vm.expectRevert(GoatErrors.ActionNotAllowed.selector);
-        pair.takeOverPool(0, initParams);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
     }
 
@@ -1055,12 +1055,12 @@ contract GoatExchangeTest is Test {
         vm.startPrank(users.lp1);
         // less than initial eth
         vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
-        pair.takeOverPool(0, initParams);
+        pair.takeOverPool(initParams);
 
         // more than initial eth
         initParams.initialEth += 2e18;
         vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
-        pair.takeOverPool(0, initParams);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
     }
 
@@ -1072,10 +1072,13 @@ contract GoatExchangeTest is Test {
         initParams.bootstrapEth = 10e18;
 
         _mintInitialLiquidity(initParams, users.lp);
+        uint256 takeOverBootstrapTokenAmt = 749e18;
 
+        _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
         vm.startPrank(users.lp1);
+        goat.transfer(address(pair), takeOverBootstrapTokenAmt);
         vm.expectRevert(GoatErrors.InsufficientTakeoverTokenAmount.selector);
-        pair.takeOverPool(749e18, initParams);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
     }
 
@@ -1095,16 +1098,18 @@ contract GoatExchangeTest is Test {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
 
-        _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
+        _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt + 1);
         vm.startPrank(users.lp1);
-        goat.approve(address(pair), takeOverBootstrapTokenAmt);
+        goat.transfer(address(pair), takeOverBootstrapTokenAmt - 1);
         vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
         // sending token less than desired should revert
-        pair.takeOverPool(takeOverBootstrapTokenAmt - 1, initParams);
+        pair.takeOverPool(initParams);
 
+        // Transfer 1 wei more than required
+        goat.transfer(address(pair), 2);
         vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
         // sending token more than desired should revert
-        pair.takeOverPool(takeOverBootstrapTokenAmt + 1, initParams);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
     }
 
@@ -1132,8 +1137,8 @@ contract GoatExchangeTest is Test {
 
         _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
         vm.startPrank(users.lp1);
-        goat.approve(address(pair), takeOverBootstrapTokenAmt);
-        pair.takeOverPool(takeOverBootstrapTokenAmt, initParams);
+        goat.transfer(address(pair), takeOverBootstrapTokenAmt);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
 
         // lp goat balance should sum of presale and amm bal
@@ -1177,9 +1182,9 @@ contract GoatExchangeTest is Test {
         _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
         _fundMe(weth, users.lp1, initParams.initialEth);
         vm.startPrank(users.lp1);
-        goat.approve(address(pair), takeOverBootstrapTokenAmt);
+        goat.transfer(address(pair), takeOverBootstrapTokenAmt);
         weth.approve(address(pair), initParams.initialEth);
-        pair.takeOverPool(takeOverBootstrapTokenAmt, initParams);
+        pair.takeOverPool(initParams);
         vm.stopPrank();
 
         // lp goat balance should sum of presale and amm bal
