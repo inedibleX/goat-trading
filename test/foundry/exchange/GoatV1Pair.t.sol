@@ -595,6 +595,28 @@ contract GoatExchangeTest is Test {
         _swapWethForTokens(1e18, 20e18, users.alice, 2);
     }
 
+    function testSwapMevBypass() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+        // normal buy
+        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+        // normal buy
+        _swapWethForTokens(1e18, 20e18, users.bob, 0);
+        vm.warp(block.timestamp + 12);
+        // frontRun txn SELL
+        _swapTokensForWeth(10e18, 1e17, users.alice, 0);
+        // user txn SELL
+        _swapTokensForWeth(11e18, 1e17, users.bob, 0);
+        // frontrunner buy
+        vm.warp(block.timestamp + 12);
+        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+    }
+
     function testSwapToChangePoolFromPresaleToAnAmmAndBurnVirtualLiquidity() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
