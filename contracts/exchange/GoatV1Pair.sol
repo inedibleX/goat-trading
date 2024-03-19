@@ -785,6 +785,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (from == lpInfo.liquidityProvider) {
             // initial lp can't transfer funds to other addresses
             if (to != address(this)) revert GoatErrors.TransferFromInitialLpRestricted();
+            if (_vestingUntil == _MAX_UINT32) revert GoatErrors.PresalePeriod();
 
             // check for coldown period
             if ((timestamp - 1 weeks) < lpInfo.lastWithdraw) {

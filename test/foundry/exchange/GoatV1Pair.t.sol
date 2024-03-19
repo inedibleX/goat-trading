@@ -403,7 +403,7 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
-    function testPartialBurnRevertOnPresale() public {
+    function testTransferOfLpTokenRestrictedAtPresalePeriodForInitialLp() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
         initParams.initialEth = 0;
@@ -419,11 +419,9 @@ contract GoatExchangeTest is Test {
         uint256 warpTime = block.timestamp + 3 days;
         // increase block.timestamp so that initial lp can remove liquidity
         vm.warp(warpTime);
-        pair.transfer(address(pair), initialLPInfo.fractionalBalance);
-
-        // Should not allow liquidity burn on preslae period!
+        // Should not allow liquidity transfer on presale
         vm.expectRevert(GoatErrors.PresalePeriod.selector);
-        pair.burn(users.lp);
+        pair.transfer(address(pair), initialLPInfo.fractionalBalance);
 
         vm.stopPrank();
     }
