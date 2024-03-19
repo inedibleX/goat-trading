@@ -20,6 +20,7 @@ library GoatLibrary {
         pure
         returns (uint256 amountTokenOut)
     {
+        // 99 bps for fees
         uint256 actualWethIn = amountWethIn * 9901;
 
         uint256 numerator = actualWethIn * reserveToken;
@@ -120,6 +121,7 @@ library GoatLibrary {
     {
         if (amountTokenIn == 0) revert GoatErrors.InsufficientInputAmount();
         if (reserveEth == 0 || reserveToken == 0) revert GoatErrors.InsufficientLiquidity();
+
         amountTokenIn = amountTokenIn * 10000;
         uint256 numerator;
         uint256 denominator;
@@ -211,7 +213,8 @@ library GoatLibrary {
     ) private pure returns (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) {
         uint256 k = virtualEth * initialTokenMatch;
         tokenAmtForPresale = initialTokenMatch - (k / (virtualEth + bootstrapEth));
-        tokenAmtForAmm = ((k / (virtualEth + bootstrapEth)) / (virtualEth + bootstrapEth)) * bootstrapEth;
+        uint256 totalEth = virtualEth + bootstrapEth;
+        tokenAmtForAmm = (k * bootstrapEth) / (totalEth * totalEth);
 
         if (initialEth != 0) {
             uint256 numerator = (initialEth * initialTokenMatch);
