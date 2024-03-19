@@ -392,7 +392,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         token.safeTransfer(initialLiquidityProvider, amountToTransferBack);
 
         if (reserveEth != 0) {
-            _burnLiquidityAndConvertToAmm(reserveEth, tokenAmtForAmm);
+            _updateLiquidityAndConvertToAmm(reserveEth, tokenAmtForAmm);
             // update bootstrap eth because original bootstrap eth was not met and
             // eth we raised until this point should be considered as bootstrap eth
             _bootstrapEth = uint112(bootstrapEth);
@@ -680,17 +680,23 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * @param actualEthReserve The actual reserve of ETH in the pool.
      * @param actualTokenReserve The actual reserve of tokens in the pool.
      */
-    function _burnLiquidityAndConvertToAmm(uint256 actualEthReserve, uint256 actualTokenReserve) internal {
+    function _updateLiquidityAndConvertToAmm(uint256 actualEthReserve, uint256 actualTokenReserve) internal {
         address initialLiquidityProvider = _initialLPInfo.liquidityProvider;
 
-        uint256 initialLPBalance = balanceOf(initialLiquidityProvider);
+        uint256 initialLpBalance = balanceOf(initialLiquidityProvider);
 
         uint256 liquidity = Math.sqrt(actualTokenReserve * actualEthReserve) - MINIMUM_LIQUIDITY;
 
-        uint256 liquidityToBurn = initialLPBalance - liquidity;
+        if (liquidity < initialLpBalance) {
+            uint256 liquidityToBurn = initialLpBalance - liquidity;
+            _burn(initialLiquidityProvider, liquidityToBurn);
+        } else {
+            uint256 liquidityToMint = liquidity - initialLpBalance;
+            _mint(initialLiquidityProvider, liquidityToMint);
+        }
 
         _updateInitialLpInfo(liquidity, 0, initialLiquidityProvider, false, true);
-        _burn(initialLiquidityProvider, liquidityToBurn);
+
         _vestingUntil = uint32(block.timestamp + VESTING_PERIOD);
     }
 
@@ -712,7 +718,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (actualK < kForAmm) {
             revert GoatErrors.KInvariant();
         }
-        _burnLiquidityAndConvertToAmm(reserveEth, reserveToken);
+        _updateLiquidityAndConvertToAmm(reserveEth, reserveToken);
     }
 
     /**
