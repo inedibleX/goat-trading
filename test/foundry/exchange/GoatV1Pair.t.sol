@@ -965,6 +965,11 @@ contract GoatExchangeTest is Test {
 
         pairFromFactory = factory.getPool(address(goat));
         assertEq(pairFromFactory, address(0));
+
+        uint256 pairTokenBalance = goat.balanceOf(address(pair));
+        uint256 pairWethBalance = weth.balanceOf(address(pair));
+        assertEq(pairTokenBalance, 0);
+        assertEq(pairWethBalance, 0);
     }
 
     function testRevertWithdrawExcessTokenDeadlineActive() public {
