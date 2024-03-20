@@ -296,9 +296,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             }
         } else {
             // check for K
-            swapVars.initialTokenMatch = _initialTokenMatch;
-            swapVars.virtualEth = _virtualEth;
-
             (swapVars.virtualEthReserveBefore, swapVars.virtualTokenReserveBefore) =
                 _getReserves(swapVars.vestingUntil, swapVars.initialReserveEth, swapVars.initialReserveToken);
             (swapVars.virtualEthReserveAfter, swapVars.virtualTokenReserveAfter) =
@@ -382,7 +379,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         // if we know token amount for AMM we can remove excess tokens that are staying in this contract
         (, uint256 tokenAmtForAmm) =
-            _tokenAmountsForLiquidityBootstrap(_virtualEth, bootstrapEth, reserveEth, _initialTokenMatch);
+            _tokenAmountsForLiquidityBootstrap(_virtualEth, bootstrapEth, 0, _initialTokenMatch);
 
         IERC20 token = IERC20(_token);
         uint256 poolTokenBalance = token.balanceOf(address(this));
@@ -715,10 +712,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         uint256 tokenAmtForAmm;
         uint256 kForAmm;
 
-        if (reserveEth >= _bootstrapEth) {
-            (, tokenAmtForAmm) = _tokenAmountsForLiquidityBootstrap(_virtualEth, _bootstrapEth, 0, _initialTokenMatch);
-            kForAmm = _bootstrapEth * tokenAmtForAmm;
-        }
+        (, tokenAmtForAmm) = _tokenAmountsForLiquidityBootstrap(_virtualEth, _bootstrapEth, 0, _initialTokenMatch);
+        kForAmm = _bootstrapEth * tokenAmtForAmm;
 
         uint256 actualK = reserveEth * reserveToken;
         if (actualK < kForAmm) {

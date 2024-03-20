@@ -265,7 +265,6 @@ contract GoatV1Router is ReentrancyGuard {
                 (vars.tokenAmount, vars.wethAmount) = (tokenAmountOptimal, wethDesired);
             } else {
                 uint256 wethAmountOptimal = GoatLibrary.quote(tokenDesired, tokenReserve, wethReserve);
-                assert(wethAmountOptimal <= wethDesired);
                 if (wethAmountOptimal < wethMin) revert GoatErrors.InsufficientWethAmount();
                 (vars.tokenAmount, vars.wethAmount) = (tokenDesired, wethAmountOptimal);
             }
