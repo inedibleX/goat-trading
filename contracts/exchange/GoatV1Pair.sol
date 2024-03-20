@@ -288,14 +288,12 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         swapVars.bootstrapEth = _bootstrapEth;
         // presale lp fees should go to reserve eth
-        if (swapVars.isPresale) {
-            swapVars.finalReserveEth += swapVars.lpFeesCollected;
+        if (swapVars.isPresale && ((swapVars.finalReserveEth + swapVars.lpFeesCollected) > swapVars.bootstrapEth)) {
             // at this point pool should be changed to an AMM
-            if (swapVars.finalReserveEth >= swapVars.bootstrapEth) {
-                _checkAndConvertPool(swapVars.finalReserveEth, swapVars.finalReserveToken);
-            }
+            _checkAndConvertPool(swapVars.finalReserveEth + swapVars.lpFeesCollected, swapVars.finalReserveToken);
         } else {
             // check for K
+
             (swapVars.virtualEthReserveBefore, swapVars.virtualTokenReserveBefore) =
                 _getReserves(swapVars.vestingUntil, swapVars.initialReserveEth, swapVars.initialReserveToken);
             (swapVars.virtualEthReserveAfter, swapVars.virtualTokenReserveAfter) =
@@ -306,6 +304,10 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             ) {
                 revert GoatErrors.KInvariant();
             }
+        }
+
+        if (swapVars.isPresale) {
+            swapVars.finalReserveEth += swapVars.lpFeesCollected;
         }
         _update(swapVars.finalReserveEth, swapVars.finalReserveToken, true);
         // TODO: Emit swap event with similar details to uniswap v2 after audit
@@ -492,7 +494,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         _bootstrapEth = uint112(initParams.bootstrapEth);
         _initialTokenMatch = initParams.initialTokenMatch;
 
-        //@note final balance check is this necessary?
         uint256 tokenBalance = IERC20(_token).balanceOf(address(this));
         // update reserves
         _update(_reserveEth, tokenBalance, false);

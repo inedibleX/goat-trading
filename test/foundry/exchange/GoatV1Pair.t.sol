@@ -522,7 +522,14 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
-    function _swapWethForTokens(uint256 wethAmount, uint256 amountTokenOut, address to, uint8 shouldRevert)
+    enum SwapRevertType {
+        None,
+        Mev1,
+        Mev2,
+        KInvariant
+    }
+
+    function _swapWethForTokens(uint256 wethAmount, uint256 amountTokenOut, address to, SwapRevertType revertType)
         private
         returns (uint256)
     {
@@ -532,22 +539,26 @@ contract GoatExchangeTest is Test {
         vm.deal(to, wethWithFees);
         weth.deposit{value: wethWithFees}();
         weth.transfer(address(pair), wethWithFees);
-        if (shouldRevert == 1) {
+        if (revertType == SwapRevertType.Mev1) {
             vm.expectRevert(GoatErrors.MevDetected1.selector);
-        } else if (shouldRevert == 2) {
+        } else if (revertType == SwapRevertType.Mev2) {
             vm.expectRevert(GoatErrors.MevDetected2.selector);
+        } else if (revertType == SwapRevertType.KInvariant) {
+            vm.expectRevert(GoatErrors.KInvariant.selector);
         }
         pair.swap(amountTokenOut, 0, to);
         vm.stopPrank();
         return wethWithFees;
     }
 
-    function _swapTokensForWeth(uint256 tokenAmount, uint256 amountWethOut, address to, uint256 shouldRevert) private {
+    function _swapTokensForWeth(uint256 tokenAmount, uint256 amountWethOut, address to, SwapRevertType revertType)
+        private
+    {
         vm.startPrank(to);
         goat.transfer(address(pair), tokenAmount);
-        if (shouldRevert == 1) {
+        if (revertType == SwapRevertType.Mev1) {
             vm.expectRevert(GoatErrors.MevDetected1.selector);
-        } else if (shouldRevert == 2) {
+        } else if (revertType == SwapRevertType.Mev2) {
             vm.expectRevert(GoatErrors.MevDetected2.selector);
         }
         pair.swap(0, amountWethOut, to);
@@ -565,11 +576,11 @@ contract GoatExchangeTest is Test {
         // using random amounts for in and out just for
         // identifying if mev is working
         // frontrun txn BUY
-        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+        _swapWethForTokens(1e18, 20e18, users.alice, SwapRevertType.None);
         // user txn BUY
-        _swapWethForTokens(1e18, 20e18, users.bob, 0);
+        _swapWethForTokens(1e18, 20e18, users.bob, SwapRevertType.None);
         // sandwich txn SELL
-        _swapTokensForWeth(2e18, 2e17, users.alice, 1);
+        _swapTokensForWeth(2e18, 2e17, users.alice, SwapRevertType.Mev1);
     }
 
     function testSwapRevertMevType2() public {
@@ -581,16 +592,16 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
         // normal buy
-        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+        _swapWethForTokens(1e18, 20e18, users.alice, SwapRevertType.None);
         // normal buy
-        _swapWethForTokens(1e18, 20e18, users.bob, 0);
+        _swapWethForTokens(1e18, 20e18, users.bob, SwapRevertType.None);
         vm.warp(block.timestamp + 12);
         // frontRun txn SELL
-        _swapTokensForWeth(10e18, 1e17, users.alice, 0);
+        _swapTokensForWeth(10e18, 1e17, users.alice, SwapRevertType.None);
         // user txn SELL
-        _swapTokensForWeth(11e18, 1e17, users.bob, 0);
+        _swapTokensForWeth(11e18, 1e17, users.bob, SwapRevertType.None);
         // frontrunner buy
-        _swapWethForTokens(1e18, 20e18, users.alice, 2);
+        _swapWethForTokens(1e18, 20e18, users.alice, SwapRevertType.Mev2);
     }
 
     function testSwapMevBypass() public {
@@ -602,17 +613,17 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
         // normal buy
-        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+        _swapWethForTokens(1e18, 20e18, users.alice, SwapRevertType.None);
         // normal buy
-        _swapWethForTokens(1e18, 20e18, users.bob, 0);
+        _swapWethForTokens(1e18, 20e18, users.bob, SwapRevertType.None);
         vm.warp(block.timestamp + 12);
         // frontRun txn SELL
-        _swapTokensForWeth(10e18, 1e17, users.alice, 0);
+        _swapTokensForWeth(10e18, 1e17, users.alice, SwapRevertType.None);
         // user txn SELL
-        _swapTokensForWeth(11e18, 1e17, users.bob, 0);
+        _swapTokensForWeth(11e18, 1e17, users.bob, SwapRevertType.None);
         // frontrunner buy
         vm.warp(block.timestamp + 12);
-        _swapWethForTokens(1e18, 20e18, users.alice, 0);
+        _swapWethForTokens(1e18, 20e18, users.alice, SwapRevertType.None);
     }
 
     function testSwapToChangePoolFromPresaleToAnAmmAndBurnVirtualLiquidity() public {
@@ -784,6 +795,19 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
+    function testSwapKInvariantRevertOnTokenOutMoreThanOptimum() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 100e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 100e18;
+        initParams.bootstrapEth = 100e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+        uint256 optimumAmountOut = 33333333333333333333;
+
+        _swapWethForTokens(50e18, optimumAmountOut + 1, users.alice, SwapRevertType.KInvariant);
+    }
+
     /* ------------------------------- WITHDRAW FEES------------------------------ */
 
     function testWithdrawFeesSuccess() public {
@@ -795,7 +819,7 @@ contract GoatExchangeTest is Test {
         uint256 wethAmount = 10e18;
         _mintInitialLiquidity(initParams, users.lp);
 
-        wethAmount = _swapWethForTokens(wethAmount, 100e18, users.alice, 0);
+        wethAmount = _swapWethForTokens(wethAmount, 100e18, users.alice, SwapRevertType.None);
         uint256 fees = (wethAmount * 99) / 10000;
         uint256 totalLpFees = (fees * 40) / 100;
         uint256 totalSupply = pair.totalSupply();
@@ -823,7 +847,7 @@ contract GoatExchangeTest is Test {
         _mintInitialLiquidity(initParams, users.lp);
 
         _mintLiquidity(10e18, 250e18, users.bob);
-        _swapWethForTokens(10e18, 166e18, users.alice, 0);
+        _swapWethForTokens(10e18, 166e18, users.alice, SwapRevertType.None);
         // increase timestamp
         uint256 warpTime = block.timestamp + 2 days;
         vm.warp(warpTime);
@@ -1072,11 +1096,16 @@ contract GoatExchangeTest is Test {
         initParams.bootstrapEth = 10e18;
 
         _mintInitialLiquidity(initParams, users.lp);
-        uint256 takeOverBootstrapTokenAmt = 749e18;
 
-        _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
+        initParams.initialTokenMatch = 1050e18;
+
+        (uint256 takeoverBootstrapTokenAmount) = GoatLibrary.getActualBootstrapTokenAmount(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+
+        _fundMe(goat, users.lp1, takeoverBootstrapTokenAmount);
         vm.startPrank(users.lp1);
-        goat.transfer(address(pair), takeOverBootstrapTokenAmt);
+        goat.transfer(address(pair), takeoverBootstrapTokenAmount);
         vm.expectRevert(GoatErrors.InsufficientTakeoverTokenAmount.selector);
         pair.takeOverPool(initParams);
         vm.stopPrank();
