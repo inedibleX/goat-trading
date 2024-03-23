@@ -114,5 +114,9 @@ contract GoatTypes {
         uint256 virtualEthOld;
         uint256 initialTokenMatchOld;
         uint256 bootstrapEthOld;
+        uint256 reserveToken;
+        uint256 reserveEth;
+        uint256 pendingProtocolFees;
+        uint256 pendingLiquidityFees;
     }
 }

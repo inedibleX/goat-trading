@@ -159,7 +159,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         _mint(to, liquidity);
 
-        _update(balanceEth, balanceToken, false);
+        _update(balanceEth, balanceToken, true);
 
         emit Mint(msg.sender, amountWeth, amountToken);
     }
@@ -202,7 +202,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         uint256 balanceEth = IERC20(_weth).balanceOf(address(this));
         uint256 balanceToken = IERC20(_token).balanceOf(address(this));
 
-        _update(balanceEth, balanceToken, false);
+        _update(balanceEth, balanceToken, true);
 
         emit Burn(msg.sender, amountWeth, amountToken, to);
     }
@@ -309,7 +309,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (swapVars.isPresale) {
             swapVars.finalReserveEth += swapVars.lpFeesCollected;
         }
-        _update(swapVars.finalReserveEth, swapVars.finalReserveToken, true);
+        _update(swapVars.finalReserveEth, swapVars.finalReserveToken, false);
         // TODO: Emit swap event with similar details to uniswap v2 after audit
         // @note what should be the swap amount values for emit here? Should it include fees?
     }
@@ -395,7 +395,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             // update bootstrap eth because original bootstrap eth was not met and
             // eth we raised until this point should be considered as bootstrap eth
             _bootstrapEth = uint112(bootstrapEth);
-            _update(reserveEth, tokenAmtForAmm, true);
+            _update(reserveEth, tokenAmtForAmm, false);
         } else {
             IGoatV1Factory(factory).removePair(_token);
         }
@@ -404,21 +404,20 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     /**
      * @notice Allows a team to take over a pool from malicious actors.
      * @dev Prevents malicious actors from griefing the pool by setting unfavorable
-     *   initial conditions. It requires the new team to match the initial liquidity
-     *   provider's WETH amount and exceed their token contribution by at least 10%.
+     *   initial conditions. It requires the new team to match the pool reserves of
+     *   WETH amount and exceed their token contribution by at least 10%.
      *   This function also resets the pool's initial liquidity parameters.
      * @param initParams The new initial parameters for the pool.
      * Requirements:
      * - Pool must be in presale period.
      * - The `tokenAmount` must be at least 10% greater and equal to bootstrap token needed for new params.
      * - Tokens must be transferred to the pool before calling this function.
-     * - `initParams.initialEth` must exactly match the initial liquidity provider's WETH contribution.
      * Reverts:
      * - If the pool has already transitioned to an AMM.
-     * - If `tokenAmount` is less than the minimum required to take over the pool.
-     * - If `tokenAmount` does not match the new combined token amount requirements.
+     * - If `tokenAmountIn` is less than the minimum required to take over the pool.
+     * - If `wethAmountIn` is less than the reserve ETH.
      * Post-Conditions:
-     * - Transfers the amount of token and weth deposited by initial lp to it's address.
+     * - Transfers the amount of token and weth after penalty to initial lp.
      * - Burns the initial liquidity provider's tokens and
      *   mints new liquidity tokens to the new team based on the new `initParams`.
      * - Resets the pool's initial liquidity parameters to the new `initParams`.
@@ -431,16 +430,12 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         GoatTypes.InitialLPInfo memory initialLpInfo = _initialLPInfo;
 
-        if (initParams.initialEth != initialLpInfo.initialWethAdded) {
-            revert GoatErrors.IncorrectWethAmount();
-        }
-
         GoatTypes.LocalVariables_TakeOverPool memory localVars;
         address to = msg.sender;
         localVars.virtualEthOld = _virtualEth;
         localVars.bootstrapEthOld = _bootstrapEth;
         localVars.initialTokenMatchOld = _initialTokenMatch;
-        // @note is there a need to check old init params and new init params?
+
         (localVars.tokenAmountForPresaleOld, localVars.tokenAmountForAmmOld) = _tokenAmountsForLiquidityBootstrap(
             localVars.virtualEthOld,
             localVars.bootstrapEthOld,
@@ -448,55 +443,139 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             localVars.initialTokenMatchOld
         );
 
+        // new token amount for bootstrap if no swaps would have occured
+        (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+
         // team needs to add min 10% more tokens than the initial lp to take over
         localVars.minTokenNeeded =
             ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 11000) / 10000;
-        uint256 tokenAmount = IERC20(_token).balanceOf(address(this)) - _reserveToken;
-        if (tokenAmount < localVars.minTokenNeeded) {
+
+        if ((localVars.tokenAmountForAmmNew + localVars.tokenAmountForPresaleNew) < localVars.minTokenNeeded) {
             revert GoatErrors.InsufficientTakeoverTokenAmount();
         }
 
-        // new token amount for presale if initParams are changed
+        localVars.reserveEth = _reserveEth;
+
+        // Actual token amounts needed if the reserves have updated after initial lp mint
         (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
-            initParams.virtualEth, initParams.bootstrapEth, _reserveEth, initParams.initialTokenMatch
+            initParams.virtualEth, initParams.bootstrapEth, localVars.reserveEth, initParams.initialTokenMatch
         );
+        localVars.reserveToken = _reserveToken;
+
+        // amount of tokens transferred by the new team
+        uint256 tokenAmountIn = IERC20(_token).balanceOf(address(this)) - localVars.reserveToken;
 
         if (
-            tokenAmount
-                != (
-                    localVars.tokenAmountForPresaleNew + localVars.tokenAmountForAmmNew - localVars.tokenAmountForPresaleOld
-                        - localVars.tokenAmountForAmmOld + _reserveToken
+            tokenAmountIn
+                < (
+                    localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld - localVars.reserveToken
+                        + localVars.tokenAmountForPresaleNew + localVars.tokenAmountForAmmNew
                 )
         ) {
             revert GoatErrors.IncorrectTokenAmount();
         }
 
-        if (initParams.initialEth != 0) {
-            // Transfer weth directly to the initial lp
-            IERC20(_weth).safeTransferFrom(to, initialLpInfo.liquidityProvider, initialLpInfo.initialWethAdded);
+        localVars.pendingLiquidityFees = _pendingLiquidityFees;
+        localVars.pendingProtocolFees = _pendingProtocolFees;
+
+        // amount of weth transferred by the new team
+        uint256 wethAmountIn = IERC20(_weth).balanceOf(address(this)) - localVars.reserveEth
+            - localVars.pendingLiquidityFees - localVars.pendingProtocolFees;
+
+        if (wethAmountIn < localVars.reserveEth) {
+            revert GoatErrors.IncorrectWethAmount();
         }
+
+        _handleTakeoverTransfers(
+            IERC20(_weth), IERC20(_token), initialLpInfo.liquidityProvider, localVars.reserveEth, localVars.reserveToken
+        );
 
         uint256 lpBalance = balanceOf(initialLpInfo.liquidityProvider);
         _burn(initialLpInfo.liquidityProvider, lpBalance);
 
-        delete _initialLPInfo;
         // new lp balance
         lpBalance = Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - MINIMUM_LIQUIDITY;
         _mint(to, lpBalance);
-        _updateInitialLpInfo(lpBalance, initParams.initialEth, to, false, false);
 
-        // transfer excess token to the initial liquidity provider
-        IERC20(_token).safeTransfer(
-            initialLpInfo.liquidityProvider, (localVars.tokenAmountForAmmOld + localVars.tokenAmountForPresaleOld)
+        _updateStateAfterTakeover(
+            initParams.virtualEth,
+            initParams.bootstrapEth,
+            initParams.initialTokenMatch,
+            wethAmountIn,
+            tokenAmountIn,
+            lpBalance,
+            to,
+            initParams.initialEth
         );
-        // update init vars
-        _virtualEth = uint112(initParams.virtualEth);
-        _bootstrapEth = uint112(initParams.bootstrapEth);
-        _initialTokenMatch = initParams.initialTokenMatch;
+    }
 
-        uint256 tokenBalance = IERC20(_token).balanceOf(address(this));
-        // update reserves
-        _update(_reserveEth, tokenBalance, false);
+    /**
+     * @notice Updates contract state following a successful pool takeover.
+     * @dev Resets pool parameters with new values provided by the
+     *  new liquidity provider and updates the pool's reserves and initial lp info.
+     * @param virtualEth The new virtual Ether amount for the pool.
+     * @param bootstrapEth The new bootstrap Ether amount for the pool.
+     * @param initialTokenMatch The new initial token match amount for the pool.
+     * @param finalReserveWeth The final WETH reserve amount after the takeover.
+     * @param finalReserveToken The final token reserve amount after the takeover.
+     * @param liquidity The liquidity amount minted to the new liquidity provider.
+     * @param newLp The address of the new liquidity provider.
+     * @param initialWeth The initial WETH amount added by the new liquidity provider.
+     * Post-Conditions:
+     * - Sets the pool's virtual ETH, bootstrap ETH, and initial token match to the new values.
+     * - Updates the initial liquidity provider information with the new liquidity provider's details.
+     * - Updates the pool's WETH and token reserves to reflect the final state after the takeover.
+     */
+    function _updateStateAfterTakeover(
+        uint256 virtualEth,
+        uint256 bootstrapEth,
+        uint256 initialTokenMatch,
+        uint256 finalReserveWeth,
+        uint256 finalReserveToken,
+        uint256 liquidity,
+        address newLp,
+        uint256 initialWeth
+    ) internal {
+        _virtualEth = uint112(virtualEth);
+        _bootstrapEth = uint112(bootstrapEth);
+        _initialTokenMatch = uint112(initialTokenMatch);
+
+        // delete initial lp info
+        delete _initialLPInfo;
+
+        // update lp info as if it was first mint
+        _updateInitialLpInfo(liquidity, initialWeth, newLp, false, false);
+
+        _update(finalReserveWeth, finalReserveToken, false);
+    }
+
+    /**
+     * @notice Handles asset transfers during a pool takeover.
+     * @dev Transfers WETH and tokens back to the initial liquidity provider (lp) with a penalty
+     *      for potential frontrunners. This mechanism aims to discourage malicious frontrunning by
+     *      applying 5% penalty to the WETH amount being transferred.
+     * @param weth The WETH token contract.
+     * @param token The token contract associated with the pool.
+     * @param lp The address of the initial liquidity provider to receive the transferred assets.
+     * @param wethAmount Total amount of weth to be transferred. (lp share + penalty)
+     * @param tokenAmount The amount of tokens to be transferred to the lp.
+     */
+    function _handleTakeoverTransfers(IERC20 weth, IERC20 token, address lp, uint256 wethAmount, uint256 tokenAmount)
+        internal
+    {
+        if (wethAmount != 0) {
+            // Malicious frontrunners can create cheaper pools buy tokens cheap
+            // and make it costly for the teams to take over. So, we need to have penalty
+            // for the frontrunner.
+            uint256 penalty = (wethAmount * 5) / 100;
+            // actual amount to transfer
+            wethAmount -= penalty;
+            weth.safeTransfer(lp, wethAmount);
+            weth.safeTransfer(IGoatV1Factory(factory).treasury(), penalty);
+        }
+        token.safeTransfer(lp, tokenAmount);
     }
 
     /**
@@ -525,15 +604,14 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     /**
      * @notice Updates the reserve amounts.
      */
-    function _update(uint256 balanceEth, uint256 balanceToken, bool fromSwap) internal {
+    function _update(uint256 balanceEth, uint256 balanceToken, bool deductFees) internal {
         // Update token reserves and other necessary data
-        if (fromSwap) {
-            _reserveEth = uint112(balanceEth);
-            _reserveToken = uint112(balanceToken);
-        } else {
+        if (deductFees) {
             _reserveEth = uint112(balanceEth - (_pendingLiquidityFees + _pendingProtocolFees));
-            _reserveToken = uint112(balanceToken);
+        } else {
+            _reserveEth = uint112(balanceEth);
         }
+        _reserveToken = uint112(balanceToken);
     }
 
     /**
@@ -614,10 +692,9 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         IGoatV1Factory _factory = IGoatV1Factory(factory);
         uint256 minCollectableFees = _factory.minimumCollectableFees();
-        address treasury = _factory.treasury();
 
         if (pendingProtocolFees > minCollectableFees) {
-            IERC20(_weth).safeTransfer(treasury, pendingProtocolFees);
+            IERC20(_weth).safeTransfer(_factory.treasury(), pendingProtocolFees);
             pendingProtocolFees = 0;
         }
         _pendingProtocolFees = uint72(pendingProtocolFees);

@@ -1066,7 +1066,7 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
-    function testRevertPoolTakeOverWithNotEnoughWeth() public {
+    function testRevertPoolTakeOverWithNotEnoughTokenInitParam() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
         initParams.initialEth = 5e18;
@@ -1075,20 +1075,13 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
 
-        initParams.initialEth -= 1e18;
         vm.startPrank(users.lp1);
         // less than initial eth
-        vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
+        vm.expectRevert(GoatErrors.InsufficientTakeoverTokenAmount.selector);
         pair.takeOverPool(initParams);
-
-        // more than initial eth
-        initParams.initialEth += 2e18;
-        vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
-        pair.takeOverPool(initParams);
-        vm.stopPrank();
     }
 
-    function testRevertPoolTakeOverWithNotEnoughToken() public {
+    function testRevertPoolTakeOverWithNotEnoughTokenTransfer() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
         initParams.initialEth = 0;
@@ -1097,7 +1090,30 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
 
-        initParams.initialTokenMatch = 1050e18;
+        initParams.initialTokenMatch = 1100e18;
+
+        (uint256 takeoverBootstrapTokenAmount) = GoatLibrary.getActualBootstrapTokenAmount(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+
+        _fundMe(goat, users.lp1, takeoverBootstrapTokenAmount);
+        vm.startPrank(users.lp1);
+        goat.transfer(address(pair), takeoverBootstrapTokenAmount - 1);
+        vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
+        pair.takeOverPool(initParams);
+        vm.stopPrank();
+    }
+
+    function testRevertPoolTakeOverWithNotEnoughWethTransfer() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 3e18;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        initParams.initialTokenMatch = 1100e18;
 
         (uint256 takeoverBootstrapTokenAmount) = GoatLibrary.getActualBootstrapTokenAmount(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
@@ -1106,47 +1122,16 @@ contract GoatExchangeTest is Test {
         _fundMe(goat, users.lp1, takeoverBootstrapTokenAmount);
         vm.startPrank(users.lp1);
         goat.transfer(address(pair), takeoverBootstrapTokenAmount);
-        vm.expectRevert(GoatErrors.InsufficientTakeoverTokenAmount.selector);
+        vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
         pair.takeOverPool(initParams);
         vm.stopPrank();
     }
 
-    function testRevertPoolTakeOverWithNotExactTokenNeededForNewInitParams() public {
+    function testPoolTakeOverSuccessWithExactly10PercentExtraTokens() public {
         GoatTypes.InitParams memory initParams;
-        initParams.virtualEth = 100e18;
-        initParams.initialEth = 0;
-        initParams.initialTokenMatch = 100e18;
-        initParams.bootstrapEth = 10e18;
-
-        _mintInitialLiquidity(initParams, users.lp);
-
-        // change init params for takeover
         initParams.virtualEth = 10e18;
-        initParams.initialTokenMatch = 1000e18;
-        uint256 takeOverBootstrapTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(
-            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
-        );
-
-        _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt + 1);
-        vm.startPrank(users.lp1);
-        goat.transfer(address(pair), takeOverBootstrapTokenAmt - 1);
-        vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
-        // sending token less than desired should revert
-        pair.takeOverPool(initParams);
-
-        // Transfer 1 wei more than required
-        goat.transfer(address(pair), 2);
-        vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
-        // sending token more than desired should revert
-        pair.takeOverPool(initParams);
-        vm.stopPrank();
-    }
-
-    function testPoolTakeOverSuccessWithoutWeth() public {
-        GoatTypes.InitParams memory initParams;
-        initParams.virtualEth = 100e18;
         initParams.initialEth = 0;
-        initParams.initialTokenMatch = 100e18;
+        initParams.initialTokenMatch = 1000e18;
         initParams.bootstrapEth = 10e18;
 
         (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = _mintInitialLiquidity(initParams, users.lp);
@@ -1155,8 +1140,7 @@ contract GoatExchangeTest is Test {
         assertEq(lpPoolBalance, 100e18 - MINIMUM_LIQUIDITY);
 
         // change init params for takeover
-        initParams.virtualEth = 10e18;
-        initParams.initialTokenMatch = 1000e18;
+        initParams.initialTokenMatch = 1100e18;
         uint256 takeOverBootstrapTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
@@ -1164,18 +1148,37 @@ contract GoatExchangeTest is Test {
         uint256 lpTokenBalance = goat.balanceOf(users.lp);
         assertEq(lpTokenBalance, 0);
 
+        uint256 lpWethBalance = weth.balanceOf(users.lp);
+        uint256 treasuryWethBalance = weth.balanceOf(users.treasury);
+        assertEq(treasuryWethBalance, 0);
+
+        (, uint256 tokenReserveBefore) = pair.getStateInfoAmm();
         _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
+        _fundMe(weth, users.lp1, initParams.initialEth);
         vm.startPrank(users.lp1);
         goat.transfer(address(pair), takeOverBootstrapTokenAmt);
+        weth.transfer(address(pair), initParams.initialEth);
         pair.takeOverPool(initParams);
         vm.stopPrank();
+        (, uint256 tokenReserveAfter) = pair.getStateInfoAmm();
+
+        assertGt(tokenReserveAfter, tokenReserveBefore);
 
         // lp goat balance should sum of presale and amm bal
         lpTokenBalance = goat.balanceOf(users.lp);
         assertEq(lpTokenBalance, (tokenAmtForPresale + tokenAmtForAmm));
 
+        lpWethBalance = weth.balanceOf(users.lp);
+        uint256 penalty = (initParams.initialEth * 5) / 100;
+        treasuryWethBalance = weth.balanceOf(users.treasury);
+        assertEq(treasuryWethBalance, penalty);
+        assertEq(lpWethBalance, initParams.initialEth - penalty);
+
         uint256 lp1PoolBalance = pair.balanceOf(users.lp1);
-        assertEq(lp1PoolBalance, 100e18 - MINIMUM_LIQUIDITY);
+        uint256 expectedLpBalance =
+            Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - MINIMUM_LIQUIDITY;
+
+        assertEq(lp1PoolBalance, expectedLpBalance);
 
         lpPoolBalance = pair.balanceOf(users.lp);
         assertEq(lpPoolBalance, 0);
@@ -1207,21 +1210,30 @@ contract GoatExchangeTest is Test {
         assertEq(lpTokenBalance, 0);
 
         uint256 lpWethBalance = weth.balanceOf(users.lp);
+        uint256 treasuryWethBalance = weth.balanceOf(users.treasury);
+        assertEq(treasuryWethBalance, 0);
 
+        (, uint256 tokenReserveBefore) = pair.getStateInfoAmm();
         _fundMe(goat, users.lp1, takeOverBootstrapTokenAmt);
         _fundMe(weth, users.lp1, initParams.initialEth);
         vm.startPrank(users.lp1);
         goat.transfer(address(pair), takeOverBootstrapTokenAmt);
-        weth.approve(address(pair), initParams.initialEth);
+        weth.transfer(address(pair), initParams.initialEth);
         pair.takeOverPool(initParams);
         vm.stopPrank();
+        (, uint256 tokenReserveAfter) = pair.getStateInfoAmm();
+
+        assertGt(tokenReserveAfter, tokenReserveBefore);
 
         // lp goat balance should sum of presale and amm bal
         lpTokenBalance = goat.balanceOf(users.lp);
         assertEq(lpTokenBalance, (tokenAmtForPresale + tokenAmtForAmm));
 
         lpWethBalance = weth.balanceOf(users.lp);
-        assertEq(lpWethBalance, initParams.initialEth);
+        uint256 penalty = (initParams.initialEth * 5) / 100;
+        treasuryWethBalance = weth.balanceOf(users.treasury);
+        assertEq(treasuryWethBalance, penalty);
+        assertEq(lpWethBalance, initParams.initialEth - penalty);
 
         uint256 lp1PoolBalance = pair.balanceOf(users.lp1);
         assertEq(lp1PoolBalance, 100e18 - MINIMUM_LIQUIDITY);
@@ -1231,6 +1243,58 @@ contract GoatExchangeTest is Test {
 
         GoatTypes.InitialLPInfo memory lpInfo = pair.getInitialLPInfo();
         assertEq(lpInfo.liquidityProvider, users.lp1);
+    }
+
+    function testPoolTakeoverSucccessWithSwap() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+        (uint256 tokenAmtForPresaleOld, uint256 tokenAmtForAmmOld) = _mintInitialLiquidity(initParams, users.lp);
+        _swapWethForTokens(8e18, 444e18, users.alice, SwapRevertType.None);
+
+        (uint256 reserveEth, uint256 reserveToken) = pair.getStateInfoAmm();
+
+        assertEq(reserveToken, goat.balanceOf(address(pair)));
+        uint256 pendingLpFees = pair.getPendingLiquidityFees();
+        uint256 pendingProtocolFees = pair.getPendingProtocolFees();
+        assertEq(pendingLpFees, 0);
+        assertEq(reserveEth + pendingProtocolFees, weth.balanceOf(address(pair)));
+
+        initParams.initialTokenMatch = 1100e18;
+        // uint256 takeOverBootstrapTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(
+        //     initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        // );
+        uint256 actualTakeoverTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(
+            initParams.virtualEth, initParams.bootstrapEth, reserveEth, initParams.initialTokenMatch
+        );
+
+        uint256 tokenAmountToTransfer =
+            tokenAmtForPresaleOld + tokenAmtForAmmOld - reserveToken + actualTakeoverTokenAmt;
+
+        (uint256 reserveEthBeforeTakeover, uint256 reserveTokenBeforeTakeover) = pair.getStateInfoAmm();
+
+        uint256 lpTokenBal = goat.balanceOf(users.lp);
+        uint256 lpWethBal = weth.balanceOf(users.lp);
+        assertEq(lpTokenBal, 0);
+        assertEq(lpWethBal, 0);
+        _fundMe(goat, users.lp1, tokenAmountToTransfer);
+        _fundMe(weth, users.lp1, reserveEth);
+        vm.startPrank(users.lp1);
+        goat.transfer(address(pair), tokenAmountToTransfer);
+        weth.transfer(address(pair), reserveEth);
+        pair.takeOverPool(initParams);
+        vm.stopPrank();
+        (uint256 reserveEthAfterTakeover, uint256 reserveTokenAfterTakeover) = pair.getStateInfoAmm();
+
+        assertEq(reserveEthAfterTakeover, reserveEthBeforeTakeover);
+        assertGe(reserveTokenAfterTakeover, reserveTokenBeforeTakeover);
+
+        lpTokenBal = goat.balanceOf(users.lp);
+        lpWethBal = weth.balanceOf(users.lp);
+        assertEq(lpTokenBal, reserveToken);
+        assertEq(lpWethBal, reserveEth - (reserveEth * 5) / 100);
     }
 
     /* ------------------------------- VIEW FUNCTION TESTS ------------------------------ */
