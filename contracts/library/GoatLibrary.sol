@@ -248,4 +248,65 @@ library GoatLibrary {
         }
         amountTokenIn = numerator / denominator;
     }
+
+    function getWethAmountIn(
+        uint256 tokenAmountOut,
+        uint256 virtualEth,
+        uint256 virtualToken,
+        uint256 reserveWeth,
+        uint256 reserveToken,
+        uint256 bootstrapEth,
+        uint256 initialTokenMatch,
+        uint256 vestingUntil
+    ) internal pure returns (uint256 amountWethIn) {
+        //
+        uint256 tokenAmountOutAmm;
+        uint256 tokenAmountOutPresale;
+        uint256 tokenReserveAmm;
+        uint256 amtWethInAmm;
+        uint256 amtWethInPresale;
+
+        if (tokenAmountOut == 0) revert GoatErrors.InsufficientInputAmount();
+        if (reserveWeth == 0 || reserveToken == 0) revert GoatErrors.InsufficientLiquidity();
+        if (tokenAmountOut > reserveToken) revert GoatErrors.InsufficientLiquidity();
+        bool isPresale = vestingUntil == type(uint32).max;
+
+        if (isPresale) {
+            (, tokenReserveAmm) =
+                _getTokenAmountsForPresaleAndAmm(virtualEth, bootstrapEth, bootstrapEth, initialTokenMatch);
+            if (tokenAmountOut > (reserveToken - tokenReserveAmm)) {
+                tokenAmountOutAmm = tokenAmountOut - (reserveToken - tokenReserveAmm);
+                tokenAmountOutPresale = tokenAmountOut - tokenAmountOutAmm;
+                amtWethInPresale = bootstrapEth - reserveWeth;
+            } else {
+                tokenAmountOutPresale = tokenAmountOut;
+                amtWethInPresale =
+                    _amountWethIn(tokenAmountOutPresale, reserveWeth + virtualEth, reserveToken + virtualToken);
+            }
+        } else {
+            tokenAmountOutAmm = tokenAmountOut;
+        }
+
+        if (tokenAmountOutAmm != 0) {
+            if (isPresale) {
+                reserveToken -= tokenAmountOutPresale;
+                reserveWeth += amtWethInPresale;
+            }
+            amtWethInAmm = _amountWethIn(tokenAmountOutAmm, reserveWeth, reserveToken);
+        }
+
+        amountWethIn = amtWethInAmm + amtWethInPresale;
+        // take in account of 99 bps fees and scale it to ceiling
+        amountWethIn = (amountWethIn * 10000 / 9901) + 1;
+    }
+
+    function _amountWethIn(uint256 tokenAmountOut, uint256 reserveWeth, uint256 reserveToken)
+        private
+        pure
+        returns (uint256 amountWethIn)
+    {
+        uint256 numerator = reserveWeth * tokenAmountOut;
+        uint256 denominator = (reserveToken - tokenAmountOut);
+        amountWethIn = (numerator / denominator);
+    }
 }
