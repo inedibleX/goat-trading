@@ -60,6 +60,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
     event Mint(address, uint256, uint256);
     event Burn(address, uint256, uint256, address);
+    event Swap(address, uint256, uint256, uint256, uint256, address);
 
     constructor() {
         factory = msg.sender;
@@ -310,8 +311,25 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             swapVars.finalReserveEth += swapVars.lpFeesCollected;
         }
         _update(swapVars.finalReserveEth, swapVars.finalReserveToken, false);
-        // TODO: Emit swap event with similar details to uniswap v2 after audit
-        // @note what should be the swap amount values for emit here? Should it include fees?
+
+        emit Swap(
+            msg.sender,
+            swapVars.amountWethIn + swapVars.feesCollected,
+            swapVars.amountTokenIn,
+            amountWethOut,
+            amountTokenOut,
+            to
+        );
+    }
+
+    /**
+     * @notice Synchronizes the reserves of the pool with the current balances.
+     * @dev This function updates the reserves to reflect the current reserve of WETH and token
+     */
+    function sync() external nonReentrant {
+        uint256 tokenBalance = IERC20(_token).balanceOf(address(this));
+        uint256 wethBalance = IERC20(_weth).balanceOf(address(this));
+        _update(wethBalance, tokenBalance, true);
     }
 
     function _getActualReserves() internal view returns (uint112 reserveEth, uint112 reserveToken) {

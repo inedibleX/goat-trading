@@ -1296,6 +1296,43 @@ contract GoatExchangeTest is Test {
         assertEq(lpTokenBal, reserveToken);
         assertEq(lpWethBal, reserveEth - (reserveEth * 5) / 100);
     }
+    /* ------------------------------- SYNC TESTS ------------------------------ */
+
+    function testSync() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        uint256 wethAmount = 5e18;
+        uint256 expectedTokenOut = 3333333333333333333;
+        uint256 wethAmountWithFees = (wethAmount * 10000) / 9901;
+
+        vm.startPrank(users.alice);
+        vm.deal(users.alice, wethAmountWithFees);
+        weth.deposit{value: wethAmountWithFees}();
+        weth.transfer(address(pair), wethAmountWithFees);
+        pair.swap(expectedTokenOut, 0, users.alice);
+        vm.stopPrank();
+        (uint256 reserveWethBefore, uint256 reserveTokenBefore) = pair.getStateInfoAmm();
+
+        // send 1 weth and 1 token to pair
+        _fundMe(weth, users.bob, 1e18);
+        _fundMe(goat, users.bob, 1e18);
+        vm.startPrank(users.bob);
+        goat.transfer(address(pair), 1e18);
+        weth.transfer(address(pair), 1e18);
+        pair.sync();
+        vm.stopPrank();
+
+        (uint256 reserveWethAfter, uint256 reserveTokenAfter) = pair.getStateInfoAmm();
+
+        assertEq(reserveWethAfter, reserveWethBefore + 1e18);
+        assertEq(reserveTokenAfter, reserveTokenBefore + 1e18);
+    }
 
     /* ------------------------------- VIEW FUNCTION TESTS ------------------------------ */
 
