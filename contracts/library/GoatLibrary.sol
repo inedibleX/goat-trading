@@ -1,10 +1,15 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
 // Local Imports
 import {GoatTypes} from "./GoatTypes.sol";
 import {GoatErrors} from "./GoatErrors.sol";
 
+/**
+ * @title Goat Library
+ * @notice Library for Goat periphery contracts.
+ * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
+ */
 library GoatLibrary {
     ///@notice given some amount of asset and pair reserves,
     /// @return amountB an equivalent amount of the other asset

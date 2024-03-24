@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -7,6 +7,12 @@ import {GoatV1Pair} from "./GoatV1Pair.sol";
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatErrors} from "../library/GoatErrors.sol";
 
+/**
+ * @title Goat Trading Factory
+ * @notice Factory contract for creating Goat Trading Pair contracts.
+ * @dev This contract is used to create Goat Trading Pair contracts.
+ * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
+ */
 contract GoatV1Factory {
     address public immutable weth;
     string private baseName;
