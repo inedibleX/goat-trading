@@ -5,8 +5,6 @@ pragma solidity 0.8.19;
 import {GoatTypes} from "./GoatTypes.sol";
 import {GoatErrors} from "./GoatErrors.sol";
 
-import {console2} from "forge-std/Test.sol";
-
 library GoatLibrary {
     ///@notice given some amount of asset and pair reserves,
     /// @return amountB an equivalent amount of the other asset
@@ -23,7 +21,8 @@ library GoatLibrary {
         returns (uint256 tokenAmtForAmm)
     {
         uint256 k = virtualEth * initialTokenMatch;
-        tokenAmtForAmm = ((k / (virtualEth + bootstrapEth)) / (virtualEth + bootstrapEth)) * bootstrapEth;
+        uint256 totalEth = virtualEth + bootstrapEth;
+        tokenAmtForAmm = (k * bootstrapEth) / (totalEth * totalEth);
     }
 
     function getTokenAmountOutAmm(uint256 amountWethIn, uint256 reserveEth, uint256 reserveToken)
