@@ -1495,7 +1495,8 @@ contract GoatExchangeTest is Test {
                 uint112 bootstrapEth,
                 uint256 virtualToken
             ) = pair.getStateInfoForPresale();
-            uint256 tokenAmountForAmm = GoatLibrary.getTokenAmountForAmm(virtualEth, bootstrapEth, initialTokenMatch);
+            uint256 tokenAmountForAmm =
+                GoatLibrary.getBootstrapTokenAmountForAmm(virtualEth, bootstrapEth, initialTokenMatch);
             uint256 amountTokenOut = GoatLibrary.getTokenAmountOutPresale(
                 amountWethIn, virtualEth, reserveEth, bootstrapEth, reserveToken, virtualToken, tokenAmountForAmm
             );

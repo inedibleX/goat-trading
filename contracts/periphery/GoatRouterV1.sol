@@ -247,7 +247,7 @@ contract GoatV1Router is ReentrancyGuard {
                  */
                 (vars.tokenAmount, vars.wethAmount) = (initParams.initialTokenMatch, initParams.virtualEth);
             } else {
-                vars.actualTokenAmount = GoatLibrary.getTokenAmountForAmm(
+                vars.actualTokenAmount = GoatLibrary.getBootstrapTokenAmountForAmm(
                     initParams.virtualEth, initParams.bootstrapEth, initParams.initialTokenMatch
                 );
                 /**
@@ -343,7 +343,7 @@ contract GoatV1Router is ReentrancyGuard {
             ) = pair.getStateInfoForPresale();
 
             uint256 tokenAmountForAmm =
-                GoatLibrary.getTokenAmountForAmm(vars.virtualEth, vars.bootstrapEth, vars.initialTokenMatch);
+                GoatLibrary.getBootstrapTokenAmountForAmm(vars.virtualEth, vars.bootstrapEth, vars.initialTokenMatch);
             amountTokenOut = GoatLibrary.getTokenAmountOutPresale(
                 amountIn,
                 vars.virtualEth,
