@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
 // library imports
@@ -15,6 +15,13 @@ import {GoatErrors} from "../library/GoatErrors.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
 
+/**
+ * @title Goat V1 Router
+ * @notice Router for stateless execution of swaps and liquidity provision
+ * @dev This contract is used for adding/removing liquidity, swapping tokens and withdrawing fees
+ * @dev This contract is stateless and does not store any data
+ * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
+ */
 contract GoatV1Router is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
