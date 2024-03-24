@@ -20,16 +20,6 @@ contract GoatTypes {
         uint32 lockedUntil;
     }
 
-    struct UserInfo {
-        uint112 fractionalBalance;
-        uint112 presaleBalance;
-        uint32 lockedUntil;
-        uint104 pendingFees;
-        uint112 feesPerTokenPaid;
-        uint32 lastUpdate;
-        uint8 withdrawlLeft;
-    }
-
     struct LaunchParams {
         uint112 virtualEth;
         uint112 bootstrapEth;
@@ -63,7 +53,6 @@ contract GoatTypes {
         bool isNewPair;
         address pair;
         uint256 actualTokenAmount;
-        uint256 wethAmountInitial;
         uint256 tokenAmount;
         uint256 wethAmount;
         uint256 liquidity;
@@ -95,8 +84,6 @@ contract GoatTypes {
         uint256 virtualTokenReserveBefore;
         uint256 virtualEthReserveAfter;
         uint256 virtualTokenReserveAfter;
-        uint256 virtualEth;
-        uint256 initialTokenMatch;
     }
 
     struct LocalVariables_PairStateInfo {
@@ -127,5 +114,9 @@ contract GoatTypes {
         uint256 virtualEthOld;
         uint256 initialTokenMatchOld;
         uint256 bootstrapEthOld;
+        uint256 reserveToken;
+        uint256 reserveEth;
+        uint256 pendingProtocolFees;
+        uint256 pendingLiquidityFees;
     }
 }

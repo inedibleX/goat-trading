@@ -27,17 +27,8 @@ if (!mnemonic) {
 }
 
 const infuraApiKey: string | undefined = process.env.INFURA_API_KEY;
-if (!infuraApiKey) {
-  throw new Error("Please set your INFURA_API_KEY in a .env file");
-}
 const forkingURL: string | undefined = process.env.MAINNET_URL_ALCHEMY;
-if (!forkingURL) {
-  throw new Error("Please set your MAINNET_URL_ALCHEMY in a .env file");
-}
 const forking: string | undefined = process.env.FORKING;
-if (!forking) {
-  throw new Error("Please set your FORKING in a .env file");
-}
 
 const accounts: string[] = [];
 function populateAccounts() {
@@ -121,9 +112,7 @@ const config: HardhatUserConfig = {
     goerli: getChainConfig("goerli"),
     tenderly: {
       url: process.env.TENDERLY_FORK || "",
-      accounts: process.env.MAINNET_PRIVATE_KEY
-        ? [`0x${process.env.MAINNET_PRIVATE_KEY}`]
-        : [],
+      accounts: process.env.MAINNET_PRIVATE_KEY ? [`0x${process.env.MAINNET_PRIVATE_KEY}`] : [],
       chainId: 1,
     },
   },
@@ -134,7 +123,7 @@ const config: HardhatUserConfig = {
     tests: "./test",
   },
   solidity: {
-    version: "0.8.17",
+    version: "0.8.19",
     settings: {
       metadata: {
         // Not including the metadata hash

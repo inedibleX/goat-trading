@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-contract GoatV1ERC20 {
+abstract contract GoatV1ERC20 {
     // Token metadata
     uint256 private constant _TWO_DAYS = 2 days;
 
@@ -88,9 +88,7 @@ contract GoatV1ERC20 {
         return _allowances[_owner][_spender];
     }
 
-    function _beforeTokenTransfer(address _from, address _to, uint256 _value) internal virtual {
-        // handle initial liquidity provider restrictions
-    }
+    function _beforeTokenTransfer(address _from, address _to, uint256 _value) internal virtual;
 
     function totalSupply() public view returns (uint256) {
         return _totalSupply;

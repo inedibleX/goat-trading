@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
+// library imports
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
+// local imports
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatV1Factory} from "../exchange/GoatV1Factory.sol";
 import {GoatV1Pair} from "../exchange/GoatV1Pair.sol";
@@ -243,7 +247,7 @@ contract GoatV1Router is ReentrancyGuard {
                  */
                 (vars.tokenAmount, vars.wethAmount) = (initParams.initialTokenMatch, initParams.virtualEth);
             } else {
-                vars.actualTokenAmount = GoatLibrary.getTokenAmountForAmm(
+                vars.actualTokenAmount = GoatLibrary.getBootstrapTokenAmountForAmm(
                     initParams.virtualEth, initParams.bootstrapEth, initParams.initialTokenMatch
                 );
                 /**
@@ -291,7 +295,7 @@ contract GoatV1Router is ReentrancyGuard {
 
         if (vars.isNewPair) {
             // only for the first time
-            vars.wethAmount = initParams.initialEth;
+            vars.wethAmount = Math.min(initParams.initialEth, initParams.bootstrapEth);
             vars.actualTokenAmount = GoatLibrary.getActualBootstrapTokenAmount(
                 initParams.virtualEth, initParams.bootstrapEth, vars.wethAmount, initParams.initialTokenMatch
             );
@@ -339,7 +343,7 @@ contract GoatV1Router is ReentrancyGuard {
             ) = pair.getStateInfoForPresale();
 
             uint256 tokenAmountForAmm =
-                GoatLibrary.getTokenAmountForAmm(vars.virtualEth, vars.bootstrapEth, vars.initialTokenMatch);
+                GoatLibrary.getBootstrapTokenAmountForAmm(vars.virtualEth, vars.bootstrapEth, vars.initialTokenMatch);
             amountTokenOut = GoatLibrary.getTokenAmountOutPresale(
                 amountIn,
                 vars.virtualEth,
