@@ -291,6 +291,10 @@ contract DemurrageToken is ERC20, Ownable {
         _updateGlobalBalance();
         _updateUserBalance(beneficiary);
         _updateUserBalance(_newBeneficiary);
+
+        safeHavens[beneficiary] = false;
+        safeHavens[_newBeneficiary] = true;
+        
         beneficiary = _newBeneficiary;
     }
 

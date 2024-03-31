@@ -17,10 +17,10 @@ contract TaxShareToken is TaxToken {
     // Amount of taxes to be shared with users. 100 == 1%.
     uint256 public sharePercent;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply) 
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _sharePercent) 
        TaxToken(_name, _symbol, _initialSupply)
     {
-
+        sharePercent = _sharePercent;
     }
 
     // Not on tax token by default because Ether is only sent to treasury there.
@@ -136,6 +136,27 @@ contract TaxShareToken is TaxToken {
         // 1e18 is removed because rewardPerToken is in full tokens
         rewardPerTokenStored += reward / (_totalSupply / 1e18);
         _balances[address(this)] += _amount - reward;
+    }
+
+    /**
+     * // todo: add capability for eth sharing
+     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
+    **/
+    function _sellTaxes()
+      internal
+      virtual
+    returns (uint256 tokens, uint256 ethValue)
+    {
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = WETH;
+
+        tokens = _balances[address(this)];
+        ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
+        if (ethValue > minSell) {
+            try IRouter(dex).swapExactTokensForEth(tokens, ethValue, path, treasury, block.timestamp) {} 
+            catch (bytes memory) {}        
+        }
     }
 
 /* ********************************************* ONLY OWNER/TREASURY ********************************************* */

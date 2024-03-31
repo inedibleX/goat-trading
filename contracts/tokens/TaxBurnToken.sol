@@ -12,10 +12,10 @@ contract TaxBurnToken is TaxToken {
     // Percent of taxes to burn. 100 == 1%.
     uint256 public burnPercent;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply) 
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _burnPercent) 
        TaxToken(_name, _symbol, _initialSupply)
     {
-
+        burnPercent = _burnPercent;
     }
 
 /* ********************************************* INTERNAL ********************************************* */

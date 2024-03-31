@@ -16,10 +16,10 @@ contract VaultToken is TaxToken {
     // Amount of Ether in this contract owed to the vault.
     uint256 public vaultEth;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply) 
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _vaultPercent) 
        TaxToken(_name, _symbol, _initialSupply)
     {
-
+        vaultPercent = _vaultPercent;
     }
 
     /**
