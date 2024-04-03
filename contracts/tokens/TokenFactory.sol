@@ -18,6 +18,10 @@ interface IToken {
     function transferTreasury(address treasury) external;
 }
 
+interface IGoatFactory {
+    function createPair(address _token, InitParams memory initParams) external returns (address);
+}
+
 /**
  * @title Token Factory
  * @author Robert M.C. Forster
@@ -29,12 +33,19 @@ interface IToken {
 contract TokenFactory {
 
     IRouter router;
+    IGoatFactory factory;
 
     struct InitParams {
         uint112 virtualEth;
         uint112 bootstrapEth;
         uint112 initialEth;
         uint112 initialTokenMatch;
+    }
+
+    constructor(address _router, address _goatFactory)
+    {
+      router = IRouter(_router);
+      factory = IGoatFactory(_goatFactory);
     }
 
 /* ********************************************* TOKEN CREATION ********************************************* */
@@ -52,7 +63,7 @@ contract TokenFactory {
      *                 of taxes that go toward the tokens advanced features. Demurrage is decay % per sec.
     **/
     function createToken(string memory _name, string memory _symbol, uint256 _totalSupply, 
-                         uint256 _buyTax, uint256 _sellTax, address _owner, uint256 _type, uint256 _percent
+                         uint256 _buyTax, uint256 _sellTax, address _owner, uint256 _type, uint256 _percent,
                          InitParams memory initParams)
       external
       payable
@@ -61,16 +72,16 @@ contract TokenFactory {
         // Create the initial token.
         IToken memory token;
         if (_type == 0) token = IToken(new PlainToken(_name, _symbol, _totalSupply));
-        elif (_type == 1) token = IToken(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
-        elif (_type == 2) token = IToken(new TaxToken(_name, _symbol, _totalSupply));
-        elif (_type == 3) token = IToken(new Taxshare(_name, _symbol, _totalSupply, _percent));
-        elif (_type == 4) token = IToken(new Taxburn(_name, _symbol, _totalSupply, _percent));
-        elif (_type == 5) token = IToken(new DividendToken(_name, _symbol, _totalSupply));
-        elif (_type == 6) token = IToken(new VaultToken(_name, _symbol, _totalSupply, _percent));
+        else if (_type == 1) token = IToken(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
+        else if (_type == 2) token = IToken(new TaxToken(_name, _symbol, _totalSupply));
+        else if (_type == 3) token = IToken(new Taxshare(_name, _symbol, _totalSupply, _percent));
+        else if (_type == 4) token = IToken(new Taxburn(_name, _symbol, _totalSupply, _percent));
+        else if (_type == 5) token = IToken(new DividendToken(_name, _symbol, _totalSupply));
+        else if (_type == 6) token = IToken(new VaultToken(_name, _symbol, _totalSupply, _percent));
         tokenAddress = address(token);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
-        address pool = factory.createPair(token, initParams);
+        pool = factory.createPair(token, initParams);
         (tokenAmtForPresale, tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
@@ -81,7 +92,7 @@ contract TokenFactory {
         // Set taxes for dex, transfer all ownership to owner.
         if (_type == 1) {
             token.transferBeneficiary(_owner);
-        } elif (_type >= 2) {
+        } else if (_type >= 2) {
             token.setTaxes(pool, _buyTax, _sellTax);
             token.transferTreasury(_owner);
         } 
@@ -92,18 +103,6 @@ contract TokenFactory {
         // Send all tokens back to owner.
         uint256 remainingBalance = token.balanceOf(address(this));
         token.transfer(_owner, remainingBalance);
-    }
-
-    function addLiquidity(
-        address token,
-        uint256 tokenDesired,
-        uint256 wethDesired,
-        uint256 tokenMin,
-        uint256 wethMin,
-        address to,
-        uint256 deadline,
-        GoatTypes.InitParams memory initParams
-
     }
 
 }

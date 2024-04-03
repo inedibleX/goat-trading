@@ -139,7 +139,6 @@ contract TaxShareToken is TaxToken {
     }
 
     /**
-     * // todo: add capability for eth sharing
      * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
     **/
     function _sellTaxes()
