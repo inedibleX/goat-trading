@@ -55,7 +55,8 @@ contract VaultToken is TaxToken {
         tokens = _balances[address(this)];
         ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
         if (ethValue > minSell) {
-            try IRouter(dex).swapExactTokensForEth(tokens, ethValue, path, address(this), block.timestamp) {
+            // How do we make impact minor here...
+            try IRouter(dex).swapExactTokensForEth(tokens, 0, path, address(this), block.timestamp) {
                 uint256 ethForVault = ethValue * vaultPercent / DIVISOR;
                 vaultEth += ethForVault;
                 payable(treasury).transfer(ethValue - ethForVault);

@@ -81,6 +81,7 @@ contract LotteryTokenMaster {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
+        require(bootstrapTokenAmt >= _totalSupply / 10, "Must use at least 10% of total supply in the pool.");
         token.approve(pool, bootstrapTokenAmt);
 
         token.setTaxes(pool, _buyTax, _sellTax);

@@ -136,7 +136,10 @@ contract TaxToken is ERC20, Ownable {
         tokens = _balances[address(this)];
         ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
         if (ethValue > minSell) {
-            try IRouter(dex).swapExactTokensForEth(tokens, ethValue, path, treasury, block.timestamp) {}
+            // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
+            tokens = tokens * minSell / ethValue;
+            // Try/catch because during bootstrapping selling won't be allowed.
+            try IRouter(dex).swapExactTokensForEth(tokens, 0, path, treasury, block.timestamp) {}
                 catch (bytes memory) {}
         }
     }
