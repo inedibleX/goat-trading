@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
-import "./TaxToken.sol";
-import "./PlainToken.sol";
-import "./TaxShareToken.sol";
-import "./TaxBurnToken.sol";
-import "./DemurrageToken.sol";
-import "./DividendToken.sol";
-import "./VaultToken.sol";
+pragma solidity 0.8.19;
+
+import {TaxToken} from "./TaxToken.sol";
+import {PlainToken} from "./PlainToken.sol";
+import {TaxShareToken} from "./TaxShareToken.sol";
+import {TaxBurnToken} from "./TaxBurnToken.sol";
+import {DemurrageToken} from "./DemurrageToken.sol";
+import {DividendToken} from "./DividendToken.sol";
+import {VaultToken} from "./VaultToken.sol";
+
+import {GoatTypes} from "../library/GoatTypes.sol";
+import {GoatLibrary} from "../library/GoatLibrary.sol";
 
 interface IToken {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -19,7 +23,11 @@ interface IToken {
 }
 
 interface IGoatFactory {
-    function createPair(address _token, InitParams memory initParams) external returns (address);
+    function createPair(address _token, GoatTypes.InitParams memory initParams) external returns (address);
+}
+
+interface IGoatPair {
+    function mint(address to) external returns (uint256 liquidity);
 }
 
 /**
@@ -29,28 +37,18 @@ interface IGoatFactory {
  *         tokens need a master contract that is cleanest separated from the rest of token creation.
  * @dev We'll make a more upgradeable version of this soon to be able to add more tokens types. Right now
  *      we're going for simplicity.
-**/
+ *
+ */
 contract TokenFactory {
+    IGoatFactory private _factory;
 
-    IRouter router;
-    IGoatFactory factory;
-
-    struct InitParams {
-        uint112 virtualEth;
-        uint112 bootstrapEth;
-        uint112 initialEth;
-        uint112 initialTokenMatch;
+    constructor(address factory_) {
+        _factory = IGoatFactory(factory_);
     }
 
-    constructor(address _router, address _goatFactory)
-    {
-      router = IRouter(_router);
-      factory = IGoatFactory(_goatFactory);
-    }
+    /* ********************************************* TOKEN CREATION ********************************************* */
 
-/* ********************************************* TOKEN CREATION ********************************************* */
-
-    /** 
+    /**
      * @dev Type is the type of token:
      * 0: plain token
      * 1: demurrage
@@ -61,33 +59,37 @@ contract TokenFactory {
      * 6: vault
      * @param _percent Refers to the extra variable many contracts have. Mostly equates to the percent
      *                 of taxes that go toward the tokens advanced features. Demurrage is decay % per sec.
-    **/
-    function createToken(string memory _name, string memory _symbol, uint256 _totalSupply, 
-                         uint256 _buyTax, uint256 _sellTax, address _owner, uint256 _type, uint256 _percent,
-                         InitParams memory initParams)
-      external
-      payable
-    returns (address tokenAddress, address pool)
-    {
+     *
+     */
+    function createToken(
+        string memory _name,
+        string memory _symbol,
+        uint256 _totalSupply,
+        uint256 _buyTax,
+        uint256 _sellTax,
+        address _owner,
+        uint256 _type,
+        uint256 _percent,
+        GoatTypes.InitParams memory initParams
+    ) external payable returns (address tokenAddress, address pool) {
         // Create the initial token.
-        IToken memory token;
-        if (_type == 0) token = IToken(new PlainToken(_name, _symbol, _totalSupply));
-        else if (_type == 1) token = IToken(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
-        else if (_type == 2) token = IToken(new TaxToken(_name, _symbol, _totalSupply));
-        else if (_type == 3) token = IToken(new Taxshare(_name, _symbol, _totalSupply, _percent));
-        else if (_type == 4) token = IToken(new Taxburn(_name, _symbol, _totalSupply, _percent));
-        else if (_type == 5) token = IToken(new DividendToken(_name, _symbol, _totalSupply));
-        else if (_type == 6) token = IToken(new VaultToken(_name, _symbol, _totalSupply, _percent));
+        IToken token;
+        if (_type == 0) token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
+        else if (_type == 1) token = IToken(address(new DemurrageToken(_name, _symbol, _totalSupply, _percent)));
+        else if (_type == 2) token = IToken(address(new TaxToken(_name, _symbol, _totalSupply)));
+        else if (_type == 3) token = IToken(address(new TaxShareToken(_name, _symbol, _totalSupply, _percent)));
+        else if (_type == 4) token = IToken(address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent)));
+        else if (_type == 5) token = IToken(address(new DividendToken(_name, _symbol, _totalSupply)));
+        else if (_type == 6) token = IToken(address(new VaultToken(_name, _symbol, _totalSupply, _percent)));
         tokenAddress = address(token);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
-        pool = factory.createPair(token, initParams);
-        (tokenAmtForPresale, tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
+        pool = _factory.createPair(tokenAddress, initParams);
+        (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
         token.approve(pool, bootstrapTokenAmt);
-        router.addLiquidity(token, 0, 0, 0, 0, _owner, block.timestamp, initParams);
 
         // Set taxes for dex, transfer all ownership to owner.
         if (_type == 1) {
@@ -95,7 +97,7 @@ contract TokenFactory {
         } else if (_type >= 2) {
             token.setTaxes(pool, _buyTax, _sellTax);
             token.transferTreasury(_owner);
-        } 
+        }
 
         // Plain tokens do not need ownership transfer.
         if (_type != 0) token.transferOwnership(_owner);
@@ -104,5 +106,4 @@ contract TokenFactory {
         uint256 remainingBalance = token.balanceOf(address(this));
         token.transfer(_owner, remainingBalance);
     }
-
 }

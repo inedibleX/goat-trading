@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
-import "./TaxToken.sol";
+pragma solidity 0.8.19;
+
+import {LotteryToken} from "./LotteryToken.sol";
+import {GoatLibrary} from "../library/GoatLibrary.sol";
+import {GoatV1Factory} from "./../exchange/GoatV1Factory.sol";
+import {GoatTypes} from "./../library/GoatTypes.sol";
 
 interface ILotteryToken {
     function payWinner(address user, uint256 entryAmount) external;
@@ -10,13 +14,13 @@ interface ILotteryToken {
  * @title Lottery Token Master
  * @author Robert M.C. Forster
  * @notice This contract spawns lottery tokens and acts as the master for all lottery tokens.
- * @dev Here we use a commit/reveal scheme for randomization in which westore entries from users, 
+ * @dev Here we use a commit/reveal scheme for randomization in which westore entries from users,
  *      then on every transfer of any token we check whether previous entries from any other token
  *      have won according to the win chance. We then call to the token telling it there's a winner.
  *      The more lottery tokens there are, the less likely it'll ever go 255 blocks without a transfer.
-**/
+ *
+ */
 contract LotteryTokenMaster {
-
     uint256 constant WEI = 1e18;
 
     // Chance of an entry winning the prize.
@@ -26,6 +30,7 @@ contract LotteryTokenMaster {
     Entry[] entries;
     uint256 entryIndex;
     uint256 defaultUpkeepLoops;
+    GoatV1Factory factory;
 
     struct Entry {
         address user;
@@ -37,52 +42,63 @@ contract LotteryTokenMaster {
         uint96 drawBlock;
     }
 
-/* ********************************************* TOKEN CREATION ********************************************* */
+    constructor(address _factory) {
+        factory = GoatV1Factory(_factory);
+    }
+
+    /* ********************************************* TOKEN CREATION ********************************************* */
 
     /**
      * @notice Factory function to create a lottery token.
      * @dev We don't want random contract being able to take advantage of our "keeping"
      *      so only valid lottery tokens should be able to interact.
-    **/
-    function createLotteryToken(string calldata _name, string calldata _symbol, uint256 _totalSupply, uint256 _winChance, uint256 _potPercent, uint256 _maxWinMultiplier)
-      external 
-    returns (address tokenAddress, address pool)
-    {
+     *
+     */
+    function createLotteryToken(
+        string calldata _name,
+        string calldata _symbol,
+        uint256 _totalSupply,
+        uint256 _winChance,
+        uint256 _potPercent,
+        uint256 _maxWinMultiplier,
+        uint256 _buyTax,
+        uint256 _sellTax,
+        GoatTypes.InitParams calldata initParams
+    ) external returns (address tokenAddress, address pool) {
         // We save tokenAmt in full tokens so let's add protection against small total supplies.
-        require(1_000_000 * WEI <= _totalSupply );
+        require(1_000_000 * WEI <= _totalSupply);
+        address owner = msg.sender;
 
         // Minimum chance 1 out of 1 million, maximum 1 out of 1
         require(0 < _winChance && _winChance < 1_000_000, "Invalid win chance.");
-        token = new LotteryToken(_name, _symbol, _totalSupply, _potPercent, _maxWinMultiplier));
+        LotteryToken token = new LotteryToken(_name, _symbol, _totalSupply, _potPercent, _maxWinMultiplier);
         tokenAddress = address(token);
         winChances[tokenAddress] = _winChance;
 
         // Create pool and add taxes to lottery
-        address pool = factory.createPair(token, initParams);
-        (tokenAmtForPresale, tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
+        pool = factory.createPair(tokenAddress, initParams);
+        (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
         token.approve(pool, bootstrapTokenAmt);
-        router.addLiquidity(token, 0, 0, 0, 0, _owner, block.timestamp, initParams);
 
         token.setTaxes(pool, _buyTax, _sellTax);
-        token.transferTreasury(_owner);
-        token.transferOwnership(_owner);
+        token.transferTreasury(owner);
+        token.transferOwnership(owner);
 
         // Send all tokens back to owner.
         uint256 remainingBalance = token.balanceOf(address(this));
-        token.transfer(_owner, remainingBalance);
+        token.transfer(owner, remainingBalance);
     }
 
     /**
      * @notice Perform upkeep where we loop through entries to check for winners.
      * @dev This will be called on every lottery token transfer, but can also be called by keepers.
      * @param _loops Number of entries to check. If 0, it will do a default small amount.
-    **/
-    function upkeep(uint256 _loops)
-      external 
-    {
+     *
+     */
+    function upkeep(uint256 _loops) external {
         // Tokens will call with 0 so we can adjust default as needed.
         // Keepers can call with many more if necessary.
         if (_loops == 0) _loops = defaultUpkeepLoops;
@@ -108,10 +124,9 @@ contract LotteryTokenMaster {
      * @dev Token calls this when a trade is made to add an entry to their lottery.
      * @param _user User who made the trade.
      * @param _tokenAmt The amount of tokens to trade, which will then determine maximum win.
-    **/
-    function addEntry(address _user, uint256 _tokenAmt)
-      external 
-    {
+     *
+     */
+    function addEntry(address _user, uint256 _tokenAmt) external {
         // Don't want entries added that aren't from valid lottery coins.
         require(winChances[msg.sender] > 0, "Entry is not from a valid lottery token.");
 
@@ -123,19 +138,16 @@ contract LotteryTokenMaster {
         entries.push(entry);
     }
 
-/* ********************************************* INTERNAL ********************************************* */
+    /* ********************************************* INTERNAL ********************************************* */
 
     /**
      * @notice Reveal part of the commit/reveal where we check whether a user has won according to blockhash.
      * @param _token The address of the lottery token that we're checking.
      * @param _user The address of the user whose entry we're checking.
      * @param _drawBlock Block number of the block where drawing is allowed.
-    **/
-    function _checkWin(address _token, address _user, uint256 _drawBlock)
-      internal
-      view
-    returns (bool isWinner)
-    {
+     *
+     */
+    function _checkWin(address _token, address _user, uint256 _drawBlock) internal view returns (bool isWinner) {
         // We don't want pruning to give an unfair advantage, so we instead make all old transactions losers.
         // theoretically this could lead to unfair losses but with enough tokens it should never be a problem.
         // If there aren't many tokens, we should setup an upkeep bot until there are.
@@ -153,13 +165,11 @@ contract LotteryTokenMaster {
      * @param _token The token contract to call.
      * @param _user The user that has won the lottery.
      * @param _tokenAmt The amount of tokens that the user initially traded with.
-    **/
-    function _wonLottery(address _token, address _user, uint256 _tokenAmt)
-      internal 
-    {
+     *
+     */
+    function _wonLottery(address _token, address _user, uint256 _tokenAmt) internal {
         // Need to first convert full token amount to token wei.
         uint256 fullTokens = _tokenAmt * WEI;
         ILotteryToken(_token).payWinner(_user, fullTokens);
     }
-
 }

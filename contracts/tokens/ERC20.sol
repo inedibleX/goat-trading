@@ -1,11 +1,20 @@
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts (last updated v5.0.0) (token/ERC20/ERC20.sol)
 
-pragma solidity ^0.8.20;
+pragma solidity 0.8.19;
+
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {Context} from "@openzeppelin/contracts/utils/Context.sol";
-import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+
+interface IERC20Errors {
+    error ERC20InvalidSender(address sender);
+    error ERC20InvalidReceiver(address receiver);
+    error ERC20InvalidApprover(address approver);
+    error ERC20InvalidSpender(address spender);
+    error ERC20InsufficientBalance(address owner, uint256 balance, uint256 value);
+    error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 value);
+}
 
 /**
  * @dev Implementation of the {IERC20} interface.

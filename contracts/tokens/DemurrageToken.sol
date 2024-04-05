@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity 0.8.19;
+
 import "./ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -8,7 +9,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @author Robert M.C. Forster
  * @notice This token's inspired by Mark Friedenbach's Freicoin and consequently Silvio Gesell's Freigeld.
  *         The demurrage aspect in those currencies, however, is meant to accelerate exchange of the currency,
- *         whereas the demurrage aspect in this token is meant to enforce productivity of the asset. 
+ *         whereas the demurrage aspect in this token is meant to enforce productivity of the asset.
  *
  *         The token creator can decide any address that is safe from demurrage charges, such as a
  *         liquidity pool, lending protocol, staking contract, or more. Theoretically this could allow
@@ -28,12 +29,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *      the math for that is unwieldy. Our solution is to compound on every interaction and to track
  *      the cumulative tokens taken, also track the average unproductive tokens paying those fees,
  *      then a user will end up paying the average of all loss during their unproductive time period.
- *      
+ *
  *      While this still isn't the cleanest method for consistent results, it works well enough and
  *      maintains a consistent total supply.
-**/
+ *
+ */
 contract DemurrageToken is ERC20, Ownable {
-
     /**
      * @dev The difficult part of demurrage tokens is that if you're charging a flat yearly percent,
      *      the time between your actions "compounding" will affect how much you're paying. For example,
@@ -48,33 +49,36 @@ contract DemurrageToken is ERC20, Ownable {
      *      the math for that is unwieldy. Our solution is to compound on every interaction and to track
      *      the cumulative tokens taken, also track the average unproductive tokens paying those fees,
      *      then a user will end up paying the average of all loss during their unproductive time period.
-     *      
+     *
      *      While this still isn't the cleanest method for consistent results, it works well enough and
      *      maintains a consistent total supply.
-    **/
-
-    uint256 constant private DIVISOR = 10_000;
+     *
+     */
+    uint256 private constant DIVISOR = 10_000;
     /**
      * @notice Address that will gain the decayed tokens.
-    **/
+     *
+     */
     address public beneficiary;
     /**
      * @notice Total amount of tokens that are currently decaying, totalSupply() - safeHavenBalances.
-    **/ 
+     *
+     */
     uint256 public decayingTokens;
     uint256 private lastGlobalUpdate;
     /**
      * @notice The amount of decay to occur per second.
      * @dev Technically if you want a yearly charge of 5%, this needs to be greater than 5% / 1 year in seconds.
-     *      Since it's compounded every second the amount decaying is constantly lowering. A 100% yearly charge 
+     *      Since it's compounded every second the amount decaying is constantly lowering. A 100% yearly charge
      *      compounded every second will be about $37 at the end of the year. Moreover, compounding doesn't
      *      actually occur every second but rather in an undetermined period based on how often interactions occur.
      *      If no one makes a transfer for a full year, 100% will be charged.
-    **/ 
+     *
+     */
     uint256 public decayPercentPerSecond;
     uint256 private cumulativeTokensPaid;
     uint256 private cumulativeDecaying;
-    
+
     // All addresses that are not exposed to decay.
     mapping(address => bool) public safeHavens;
     mapping(address => uint256) private lastUserUpdate;
@@ -87,29 +91,25 @@ contract DemurrageToken is ERC20, Ownable {
      * @param _symbol Symbol for the token.
      * @param _initialSupply Initial supply for the token that will be sent to msg.sender.
      * @param _decayPercentPerSecond Rate of token decay. Explained further above.
-    **/
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _decayPercentPerSecond) 
-       ERC20(_name, _symbol)
-       Ownable(msg.sender)
+     *
+     */
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _decayPercentPerSecond)
+        ERC20(_name, _symbol)
     {
         _mint(msg.sender, _initialSupply);
         decayPercentPerSecond = _decayPercentPerSecond;
         safeHavens[beneficiary] = true;
     }
 
-/* ********************************************* PUBLIC ********************************************* */
+    /* ********************************************* PUBLIC ********************************************* */
 
     /**
      * @notice balanceOf override. If an address is a safe haven, stored balance is returned. If it's not, we calculate
      *      balance based off how much has decayed since their last update.
      * @param user Address to find the balance of.
-    **/
-    function balanceOf(address user)
-      public
-      view
-      override
-    returns (uint256 balance)
-    {
+     *
+     */
+    function balanceOf(address user) public view override returns (uint256 balance) {
         if (safeHavens[user]) return _balances[user];
 
         uint256 tokensOwed = _calculateDecayedTokens(user);
@@ -120,22 +120,20 @@ contract DemurrageToken is ERC20, Ownable {
     /**
      * @notice externalUpdate is just here in case someone wants to update without a transfer.
      * @param _user User whose balance to update. Not a problem if it's arbitrary.
-    **/
-    function externalUpdate(address _user)
-      external
-    {
+     *
+     */
+    function externalUpdate(address _user) external {
         _updateGlobalBalance();
         _updateUserBalance(_user);
     }
 
-/* ********************************************* INTERNAL ********************************************* */
+    /* ********************************************* INTERNAL ********************************************* */
 
     /**
      * @notice Update the global cumulatives for the new block.
-    **/
-    function _updateGlobalBalance()
-      internal
-    {
+     *
+     */
+    function _updateGlobalBalance() internal {
         // Time since last update.
         uint256 timeElapsed = block.timestamp - lastGlobalUpdate;
 
@@ -143,28 +141,27 @@ contract DemurrageToken is ERC20, Ownable {
         uint256 globalTokensOwed = decayingTokens * globalPercentOwed / DIVISOR;
         // If we owe more than there are, cap it.
         globalTokensOwed = globalTokensOwed > decayingTokens ? decayingTokens : globalTokensOwed;
-        
+
         cumulativeTokensPaid += globalTokensOwed;
         cumulativeDecaying += decayingTokens * (block.timestamp - lastGlobalUpdate);
         lastGlobalUpdate = block.timestamp;
 
         // Add balance to beneficiary.
-        /** 
+        /**
          * @dev We could avoid paying gas for this and simply calculate beneficiary balance where needed,
          * but that adds a lot of code elsewhere that I don't want to worry about.
          * For the first version of these tokens we're prioritizing safety over efficiency.
-        **/
+         *
+         */
         _balances[beneficiary] += globalTokensOwed;
     }
 
     /**
      * @notice Update the user balance based on new cumulatives. Must come after a global update.
      * @param _user The address that we're updating balance of.
-    **/
-    function _updateUserBalance(address _user)
-      internal
-    returns (uint256 newBalance)
-    {
+     *
+     */
+    function _updateUserBalance(address _user) internal returns (uint256 newBalance) {
         newBalance = balanceOf(_user);
         _balances[_user] = newBalance;
         lastUserDecaying[_user] = cumulativeDecaying;
@@ -175,12 +172,9 @@ contract DemurrageToken is ERC20, Ownable {
     /**
      * @notice Calculate the decayed tokens of a user to update their balance/
      * @param _user The address that we're calculating recent decay for.
-    **/
-    function _calculateDecayedTokens(address _user)
-      internal
-      view
-    returns (uint256 tokensOwed)
-    {
+     *
+     */
+    function _calculateDecayedTokens(address _user) internal view returns (uint256 tokensOwed) {
         uint256 timeElapsed = block.timestamp - lastUserUpdate[_user];
         uint256 avgUnproductive = cumulativeDecaying - lastUserDecaying[_user] / timeElapsed;
         uint256 avgTokensPaid = cumulativeTokensPaid - lastUserTokensPaid[_user] / timeElapsed;
@@ -200,9 +194,9 @@ contract DemurrageToken is ERC20, Ownable {
      * @param from The address sending tokens.
      * @param to The address receiving tokens.
      * @param value The value attempting to be set. Will revert if it's over stored _balance of user, but not if it's over updated balance.
-    **/
+     *
+     */
     function _update(address from, address to, uint256 value) internal override {
-
         // Demurrage: Update global balance variables.
         _updateGlobalBalance();
 
@@ -216,17 +210,18 @@ contract DemurrageToken is ERC20, Ownable {
             }
 
             /**
-             * @dev Hear me out. 
+             * @dev Hear me out.
              *
              * If we update before value is initially checked, sending max tokens will usually fail.
              * The solution would be to make value the full balance if we're sending over balance, and that's all fine and dandy.
              * The obvious problem here is developers need to be extremely cautious to check token amount transferred rather
              * than only checking for a successful transferFrom or someone with no tokens could "transfer" billions.
              *
-             * While we can't entirely solve this problem, by updating after an initial balance check, and only then allowing 
+             * While we can't entirely solve this problem, by updating after an initial balance check, and only then allowing
              * value over the user's balance to be lowered to the user's balance, we can at least confirm the user had those tokens.
              * It still isn't ideal, but is better and a scenario that already needs to be accounted for with fee-on-transfer tokens.
-            **/
+             *
+             */
             bool fromSafeHaven = safeHavens[from] || from == beneficiary;
             if (!fromSafeHaven) fromBalance = _updateUserBalance(from);
             if (value > fromBalance) value = fromBalance;
@@ -235,7 +230,7 @@ contract DemurrageToken is ERC20, Ownable {
                 // Overflow not possible: value <= fromBalance <= totalSupply.
                 _balances[from] = fromBalance - value;
             }
-            
+
             if (fromSafeHaven) decayingTokens += value;
         }
 
@@ -260,32 +255,29 @@ contract DemurrageToken is ERC20, Ownable {
         emit Transfer(from, to, value);
     }
 
-/* ********************************************* PRIVILEGED ********************************************* */
+    /* ********************************************* PRIVILEGED ********************************************* */
 
     /**
-     * @notice Add or remove safe havens (addresses that will not have their tokens decayed). 
+     * @notice Add or remove safe havens (addresses that will not have their tokens decayed).
      *      These addresses are where you want tokens to be: LPs, lending protocols, etc.
      * @dev Beneficiary will be automatically added and all others need to be added manually.
      * @param _safeHaven The address to adjust whether or not their tokens decat.
      * @param _toAdd Whether to add (true) or remove (false) the address from being a safe haven.
-    **/
-    function changeSafeHaven(address _safeHaven, bool _toAdd)
-      external
-      onlyOwner
-    {
+     *
+     */
+    function changeSafeHaven(address _safeHaven, bool _toAdd) external onlyOwner {
         // First update in case it held tokens before this.
         _updateGlobalBalance();
         _updateUserBalance(_safeHaven);
         safeHavens[_safeHaven] = _toAdd;
     }
-    
+
     /**
      * @notice Beneficiary or owner may change the address that receives decaying tokens.
      * @param _newBeneficiary The new address to receive decaying tokens.
-    **/
-    function transferBeneficiary(address _newBeneficiary)
-      external
-    {
+     *
+     */
+    function transferBeneficiary(address _newBeneficiary) external {
         require(msg.sender == beneficiary || msg.sender == owner(), "Only beneficiary or owner may call this function.");
 
         _updateGlobalBalance();
@@ -294,8 +286,7 @@ contract DemurrageToken is ERC20, Ownable {
 
         safeHavens[beneficiary] = false;
         safeHavens[_newBeneficiary] = true;
-        
+
         beneficiary = _newBeneficiary;
     }
-
 }

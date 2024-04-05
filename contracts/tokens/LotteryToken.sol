@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity 0.8.19;
+
+import "./TaxToken.sol";
 
 interface ILotteryMaster {
     function upkeep(uint256 loops) external;
@@ -12,9 +14,9 @@ interface ILotteryMaster {
  * @notice Actual token for the lottery scheme. Tax token that also adds taxes to a lottery pot.
  * @dev On every single token transfer it also calls back to the lottery master to check
  *      whether previous entries for any token have won their own lottery.
-**/
+ *
+ */
 contract LotteryToken is TaxToken {
-
     // The maximum amount over entry amount that the user can win.
     // 10000 == 100x
     uint256 public maxWinMultiplier;
@@ -33,18 +35,21 @@ contract LotteryToken is TaxToken {
 
     event LotteryWin(address user, uint256 entryAmount, uint256 winnings, uint256 timestamp);
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _maxWinMultiplier, uint256 _potPercent) 
-       TaxToken(_name, _symbol, _initialSupply)
-    {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint256 _initialSupply,
+        uint256 _maxWinMultiplier,
+        uint256 _potPercent
+    ) TaxToken(_name, _symbol, _initialSupply) {
         maxWinMultiplier = _maxWinMultiplier;
         potPercent = _potPercent;
     }
 
-/* ********************************************* INTERNAL ********************************************* */
+    /* ********************************************* INTERNAL ********************************************* */
 
     // OpenZeppelin ERC20 _update with only change being upkeep and entry calls.
     function _update(address from, address to, uint256 value) internal override {
-
         uint256 tax = determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
@@ -95,25 +100,22 @@ contract LotteryToken is TaxToken {
     /**
      * @dev In versions with more advanced tax features, this function will be overridden.
      * @param _amount Amount of tax tokens to be awarded.
-    **/
-    function _awardTaxes(uint256 _amount)
-      internal
-      override
-    {
+     *
+     */
+    function _awardTaxes(uint256 _amount) internal override {
         uint256 potGain = _amount * potPercent / DIVISOR;
         _balances[address(this)] += _amount - potGain;
     }
 
-/* ********************************************* PRIVILEGED ********************************************* */
+    /* ********************************************* PRIVILEGED ********************************************* */
 
     /**
      * @notice Lottery master calls in here to payout a win.
      * @param _user The user address who's won the lottery.
      * @param _entryAmount The amount of tokens they purchased with this entry which determines their maximum win.
-    **/
-    function payWinner(address _user, uint256 _entryAmount)
-      external
-    {
+     *
+     */
+    function payWinner(address _user, uint256 _entryAmount) external {
         require(msg.sender == lotteryMaster, "Only LotteryMaster may pay winner.");
 
         uint256 maxWin = _entryAmount * maxWinMultiplier;
@@ -128,13 +130,10 @@ contract LotteryToken is TaxToken {
     /**
      * @notice Change the percent of taxes that are put into the lottery pot.
      * @param _newPotPercent New percent of taxes that are put into the pot. 100 == 1%.
-    **/
-    function changePotPercent(uint256 _newPotPercent)
-      external
-      onlyOwnerOrTreasury
-    {
+     *
+     */
+    function changePotPercent(uint256 _newPotPercent) external onlyOwnerOrTreasury {
         require(_newPotPercent <= DIVISOR, "New vault percent too high.");
         potPercent = _newPotPercent;
     }
-
 }
