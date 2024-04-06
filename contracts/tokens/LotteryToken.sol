@@ -40,8 +40,9 @@ contract LotteryToken is TaxToken {
         string memory _symbol,
         uint256 _initialSupply,
         uint256 _maxWinMultiplier,
-        uint256 _potPercent
-    ) TaxToken(_name, _symbol, _initialSupply) {
+        uint256 _potPercent,
+        address _weth
+    ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         maxWinMultiplier = _maxWinMultiplier;
         potPercent = _potPercent;
     }
@@ -50,7 +51,7 @@ contract LotteryToken is TaxToken {
 
     // OpenZeppelin ERC20 _update with only change being upkeep and entry calls.
     function _update(address from, address to, uint256 value) internal override {
-        uint256 tax = determineTax(from, to, value);
+        uint256 tax = _determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
 
@@ -103,7 +104,7 @@ contract LotteryToken is TaxToken {
      *
      */
     function _awardTaxes(uint256 _amount) internal override {
-        uint256 potGain = _amount * potPercent / DIVISOR;
+        uint256 potGain = _amount * potPercent / _DIVISOR;
         _balances[address(this)] += _amount - potGain;
     }
 
@@ -133,7 +134,7 @@ contract LotteryToken is TaxToken {
      *
      */
     function changePotPercent(uint256 _newPotPercent) external onlyOwnerOrTreasury {
-        require(_newPotPercent <= DIVISOR, "New vault percent too high.");
+        require(_newPotPercent <= _DIVISOR, "New vault percent too high.");
         potPercent = _newPotPercent;
     }
 }

@@ -18,13 +18,20 @@ contract TaxShareToken is TaxToken {
     // Amount of taxes to be shared with users. 100 == 1%.
     uint256 public sharePercent;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _sharePercent)
-        TaxToken(_name, _symbol, _initialSupply)
-    {
+    error NewVaultPercentTooHigh();
+
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint256 _initialSupply,
+        uint256 _sharePercent,
+        address _weth
+    ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         sharePercent = _sharePercent;
     }
 
     // Not on tax token by default because Ether is only sent to treasury there.
+
     receive() external payable {}
 
     /* ********************************************* VIEW ********************************************* */
@@ -55,7 +62,7 @@ contract TaxShareToken is TaxToken {
 
     // TaxToken _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal override {
-        uint256 tax = determineTax(from, to, value);
+        uint256 tax = _determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
 
@@ -122,7 +129,7 @@ contract TaxShareToken is TaxToken {
      *
      */
     function _awardTaxes(uint256 _amount) internal override {
-        uint256 reward = _amount * sharePercent / DIVISOR;
+        uint256 reward = _amount * sharePercent / _DIVISOR;
         // 1e18 is removed because rewardPerToken is in full tokens
         rewardPerTokenStored += reward / (_totalSupply / 1e18);
         _balances[address(this)] += _amount - reward;
@@ -135,27 +142,26 @@ contract TaxShareToken is TaxToken {
     function _sellTaxes() internal virtual override returns (uint256 tokens, uint256 ethValue) {
         address[] memory path = new address[](2);
         path[0] = address(this);
-        path[1] = WETH;
+        path[1] = _WETH;
 
         tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
-        if (ethValue > minSell) {
+        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
+        if (ethValue > _minSell) {
             // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-            tokens = tokens * minSell / ethValue;
+            tokens = tokens * _minSell / ethValue;
             try IRouter(dex).swapExactTokensForEth(tokens, 0, path, treasury, block.timestamp) {}
                 catch (bytes memory) {}
         }
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
-
     /**
      * @notice Change the percent of taxes to be shared with users.
      * @param _newSharePercent New percent of taxes to be shared. 100 == 1%.
      *
      */
     function changeSharePercent(uint256 _newSharePercent) external onlyOwnerOrTreasury {
-        require(_newSharePercent <= DIVISOR, "New vault percent too high.");
+        if (_newSharePercent > _DIVISOR) revert NewVaultPercentTooHigh();
         sharePercent = _newSharePercent;
     }
 }

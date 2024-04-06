@@ -13,8 +13,8 @@ contract TaxBurnToken is TaxToken {
     // Percent of taxes to burn. 100 == 1%.
     uint256 public burnPercent;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _burnPercent)
-        TaxToken(_name, _symbol, _initialSupply)
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _burnPercent, address _weth)
+        TaxToken(_name, _symbol, _initialSupply, _weth)
     {
         burnPercent = _burnPercent;
     }
@@ -29,7 +29,7 @@ contract TaxBurnToken is TaxToken {
     function _awardTaxes(uint256 _amount) internal override {
         // Eh, could be more efficient but I like the cleanliness.
         _balances[address(this)] += _amount;
-        uint256 burnAmount = _amount * burnPercent / DIVISOR;
+        uint256 burnAmount = _amount * burnPercent / _DIVISOR;
         _burn(address(this), burnAmount);
     }
 
@@ -41,7 +41,7 @@ contract TaxBurnToken is TaxToken {
      *
      */
     function changeBurnPercent(uint256 _newBurnPercent) external onlyOwnerOrTreasury {
-        require(_newBurnPercent <= DIVISOR, "New vault percent too high.");
+        require(_newBurnPercent <= _DIVISOR, "New vault percent too high.");
         burnPercent = _newBurnPercent;
     }
 }

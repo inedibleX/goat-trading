@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import {BaseTokenTest} from "./BaseTokenTest.t.sol";
+import {BaseTokenTest, TaxToken} from "./BaseTokenTest.t.sol";
+
+import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
+
+import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -13,7 +17,22 @@ import {BaseTokenTest} from "./BaseTokenTest.t.sol";
 
 contract TaxTokenTest is BaseTokenTest {
     // Test all functionality of plain tax tokens
+    function launch() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        (address token, address pool) =
+            tokenFactory.createToken("TaxToken", "TT1", 1e21, 100, 100, users.owner, TokenType.TAX, 1000, initParams);
+
+        plainTax = TaxToken(token);
+        pair = pool;
+    }
+
     function testPlainTax() public {
+        launch();
         // Tests that tokens transfer correctly with and without taxes.
         _testTaxTransfers();
         // Test that taxes are added to the treasury correctly.

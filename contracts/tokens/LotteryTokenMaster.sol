@@ -21,16 +21,18 @@ interface ILotteryToken {
  *
  */
 contract LotteryTokenMaster {
-    uint256 constant WEI = 1e18;
+    uint256 internal constant _WEI = 1e18;
+
+    address internal immutable _weth;
 
     // Chance of an entry winning the prize.
     // 1 == 0.0001%, 10,000 == 1%, 1,000,000 == 100%
-    mapping(address => uint256) winChances;
+    mapping(address => uint256) public winChances;
 
-    Entry[] entries;
-    uint256 entryIndex;
-    uint256 defaultUpkeepLoops;
-    GoatV1Factory factory;
+    Entry[] public entries;
+    uint256 public entryIndex;
+    uint256 public defaultUpkeepLoops;
+    GoatV1Factory internal _factory;
 
     struct Entry {
         address user;
@@ -42,8 +44,9 @@ contract LotteryTokenMaster {
         uint96 drawBlock;
     }
 
-    constructor(address _factory) {
-        factory = GoatV1Factory(_factory);
+    constructor(address factory_, address weth_) {
+        _factory = GoatV1Factory(factory_);
+        _weth = weth_;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */
@@ -66,17 +69,17 @@ contract LotteryTokenMaster {
         GoatTypes.InitParams calldata initParams
     ) external returns (address tokenAddress, address pool) {
         // We save tokenAmt in full tokens so let's add protection against small total supplies.
-        require(1_000_000 * WEI <= _totalSupply);
+        require(1_000_000 * _WEI <= _totalSupply);
         address owner = msg.sender;
 
         // Minimum chance 1 out of 1 million, maximum 1 out of 1
         require(0 < _winChance && _winChance < 1_000_000, "Invalid win chance.");
-        LotteryToken token = new LotteryToken(_name, _symbol, _totalSupply, _potPercent, _maxWinMultiplier);
+        LotteryToken token = new LotteryToken(_name, _symbol, _totalSupply, _potPercent, _maxWinMultiplier, _weth);
         tokenAddress = address(token);
         winChances[tokenAddress] = _winChance;
 
         // Create pool and add taxes to lottery
-        pool = factory.createPair(tokenAddress, initParams);
+        pool = _factory.createPair(tokenAddress, initParams);
         (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
@@ -133,7 +136,7 @@ contract LotteryTokenMaster {
 
         // Push drawing to the next Ethereum epoch
         uint96 drawBlock = uint96(block.number + 32);
-        uint96 fullTokens = uint96(_tokenAmt / WEI);
+        uint96 fullTokens = uint96(_tokenAmt / _WEI);
 
         Entry memory entry = Entry(_user, fullTokens, msg.sender, drawBlock);
         entries.push(entry);
@@ -170,7 +173,7 @@ contract LotteryTokenMaster {
      */
     function _wonLottery(address _token, address _user, uint256 _tokenAmt) internal {
         // Need to first convert full token amount to token wei.
-        uint256 fullTokens = _tokenAmt * WEI;
+        uint256 fullTokens = _tokenAmt * _WEI;
         ILotteryToken(_token).payWinner(_user, fullTokens);
     }
 }

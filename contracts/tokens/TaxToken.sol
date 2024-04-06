@@ -25,16 +25,15 @@ interface IRouter {
  *
  */
 contract TaxToken is ERC20, Ownable {
-    uint256 constant DIVISOR = 10_000;
-    uint256 constant TAX_MAX = 1_000;
-    uint256 minSell;
+    uint256 internal constant _DIVISOR = 10_000;
+    uint256 internal constant _TAX_MAX = 1_000;
+    address internal immutable _WETH;
+
+    uint256 internal _minSell;
 
     // Team address that will receive tax profits.
     address public treasury;
     address public dex;
-
-    // This is for Base, must be changed for other chains.
-    address constant WETH = 0x4200000000000000000000000000000000000006;
 
     // Pool address => % tax on the pool, 100 == 1%, 1000 (10%) maximum.
     mapping(address => uint256) public buyTax;
@@ -43,10 +42,17 @@ contract TaxToken is ERC20, Ownable {
     // Used in some iterations such as TaxShare in a situation where a dex should be excluded from activity.
     mapping(address => bool) public taxed;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply) ERC20(_name, _symbol) {
+    /* ********************************************* ERRORS ********************************************* */
+    error TaxTooHigh();
+
+    /* ********************************************* CONSTRUCTOR ********************************************* */
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, address _weth)
+        ERC20(_name, _symbol)
+    {
         // Somewhat arbitrary minimumSell beginning
-        minSell = 0.1 ether;
+        _minSell = 0.1 ether;
         treasury = msg.sender;
+        _WETH = _weth;
         _mint(msg.sender, _initialSupply);
     }
 
@@ -58,7 +64,7 @@ contract TaxToken is ERC20, Ownable {
     // If token contract balance is above a certain amount, sell tokens
     // OpenZeppelin ERC20 _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal virtual override {
-        uint256 tax = determineTax(from, to, value);
+        uint256 tax = _determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
 
@@ -105,13 +111,13 @@ contract TaxToken is ERC20, Ownable {
      * @param _value Value of the funds being sent.
      *
      */
-    function determineTax(address _from, address _to, uint256 _value) internal view returns (uint256 taxAmount) {
+    function _determineTax(address _from, address _to, uint256 _value) internal view returns (uint256 taxAmount) {
         uint256 fromTax = buyTax[_from];
         uint256 toTax = sellTax[_to];
 
         // If there's no tax, will just equal 0.
-        taxAmount += _value * fromTax / DIVISOR;
-        taxAmount += _value * toTax / DIVISOR;
+        taxAmount += _value * fromTax / _DIVISOR;
+        taxAmount += _value * toTax / _DIVISOR;
     }
 
     /**
@@ -131,13 +137,13 @@ contract TaxToken is ERC20, Ownable {
     function _sellTaxes() internal virtual returns (uint256 tokens, uint256 ethValue) {
         address[] memory path = new address[](2);
         path[0] = address(this);
-        path[1] = WETH;
+        path[1] = _WETH;
 
         tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
-        if (ethValue > minSell) {
+        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
+        if (ethValue > _minSell) {
             // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-            tokens = tokens * minSell / ethValue;
+            tokens = tokens * _minSell / ethValue;
             // Try/catch because during bootstrapping selling won't be allowed.
             try IRouter(dex).swapExactTokensForEth(tokens, 0, path, treasury, block.timestamp) {}
                 catch (bytes memory) {}
@@ -172,7 +178,7 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function changeMinSell(uint256 _newMinSell) external onlyOwnerOrTreasury {
-        minSell = _newMinSell;
+        _minSell = _newMinSell;
     }
 
     /**
@@ -196,7 +202,7 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external onlyOwner {
-        require(_buyTax <= TAX_MAX && _sellTax <= TAX_MAX, "Tax attempting to be set too high.");
+        if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TaxTooHigh();
         buyTax[_dex] = _buyTax;
         sellTax[_dex] = _sellTax;
 

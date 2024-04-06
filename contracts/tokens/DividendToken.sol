@@ -29,8 +29,8 @@ contract DividendToken is TaxToken, ReentrancyGuard {
     event RewardPaid(address indexed user, uint256 reward);
     event Recovered(uint256 amount);
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply)
-        TaxToken(_name, _symbol, _initialSupply)
+    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, address _weth)
+        TaxToken(_name, _symbol, _initialSupply, _weth)
     {}
 
     // Not on tax token by default because Ether is only sent to treasury there.
@@ -68,7 +68,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
 
     // OpenZeppelin ERC20 _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal override {
-        uint256 tax = determineTax(from, to, value);
+        uint256 tax = _determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
 

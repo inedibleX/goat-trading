@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
+// import console2 from foundry
+
+import {console2} from "forge-std/Test.sol";
 
 import {TaxToken} from "./TaxToken.sol";
 import {PlainToken} from "./PlainToken.sol";
@@ -30,6 +33,16 @@ interface IGoatPair {
     function mint(address to) external returns (uint256 liquidity);
 }
 
+enum TokenType {
+    PLAIN,
+    DEMURRAGE,
+    TAX,
+    TAXSHARE,
+    TAXBURN,
+    DIVIDEND,
+    VAULT
+}
+
 /**
  * @title Token Factory
  * @author Robert M.C. Forster
@@ -41,9 +54,13 @@ interface IGoatPair {
  */
 contract TokenFactory {
     IGoatFactory private _factory;
+    address private immutable _weth;
 
-    constructor(address factory_) {
+    error TokenAmountForPoolTooLow();
+
+    constructor(address factory_, address weth_) {
         _factory = IGoatFactory(factory_);
+        _weth = weth_;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */
@@ -68,19 +85,27 @@ contract TokenFactory {
         uint256 _buyTax,
         uint256 _sellTax,
         address _owner,
-        uint256 _type,
+        TokenType _type,
         uint256 _percent,
         GoatTypes.InitParams memory initParams
     ) external payable returns (address tokenAddress, address pool) {
         // Create the initial token.
         IToken token;
-        if (_type == 0) token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
-        else if (_type == 1) token = IToken(address(new DemurrageToken(_name, _symbol, _totalSupply, _percent)));
-        else if (_type == 2) token = IToken(address(new TaxToken(_name, _symbol, _totalSupply)));
-        else if (_type == 3) token = IToken(address(new TaxShareToken(_name, _symbol, _totalSupply, _percent)));
-        else if (_type == 4) token = IToken(address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent)));
-        else if (_type == 5) token = IToken(address(new DividendToken(_name, _symbol, _totalSupply)));
-        else if (_type == 6) token = IToken(address(new VaultToken(_name, _symbol, _totalSupply, _percent)));
+        if (_type == TokenType.PLAIN) {
+            token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
+        } else if (_type == TokenType.DEMURRAGE) {
+            token = IToken(address(new DemurrageToken(_name, _symbol, _totalSupply, _percent)));
+        } else if (_type == TokenType.TAX) {
+            token = IToken(address(new TaxToken(_name, _symbol, _totalSupply, _weth)));
+        } else if (_type == TokenType.TAXSHARE) {
+            token = IToken(address(new TaxShareToken(_name, _symbol, _totalSupply, _percent, _weth)));
+        } else if (_type == TokenType.TAXBURN) {
+            token = IToken(address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent, _weth)));
+        } else if (_type == TokenType.DIVIDEND) {
+            token = IToken(address(new DividendToken(_name, _symbol, _totalSupply, _weth)));
+        } else if (_type == TokenType.VAULT) {
+            token = IToken(address(new VaultToken(_name, _symbol, _totalSupply, _percent, _weth)));
+        }
         tokenAddress = address(token);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
@@ -89,19 +114,20 @@ contract TokenFactory {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
-        require(bootstrapTokenAmt >= _totalSupply / 10, "Must use at least 10% of total supply in the pool.");
+        if (bootstrapTokenAmt < _totalSupply / 10) revert TokenAmountForPoolTooLow();
+
         token.approve(pool, bootstrapTokenAmt);
 
         // Set taxes for dex, transfer all ownership to owner.
-        if (_type == 1) {
+        if (_type == TokenType.DEMURRAGE) {
             token.transferBeneficiary(_owner);
-        } else if (_type >= 2) {
+        } else if (_type != TokenType.PLAIN) {
             token.setTaxes(pool, _buyTax, _sellTax);
             token.transferTreasury(_owner);
         }
 
         // Plain tokens do not need ownership transfer.
-        if (_type != 0) token.transferOwnership(_owner);
+        if (_type != TokenType.PLAIN) token.transferOwnership(_owner);
 
         // Send all tokens back to owner.
         uint256 remainingBalance = token.balanceOf(address(this));

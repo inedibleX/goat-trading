@@ -54,7 +54,7 @@ contract DemurrageToken is ERC20, Ownable {
      *      maintains a consistent total supply.
      *
      */
-    uint256 private constant DIVISOR = 10_000;
+    uint256 private constant _DIVISOR = 10_000;
     /**
      * @notice Address that will gain the decayed tokens.
      *
@@ -65,7 +65,7 @@ contract DemurrageToken is ERC20, Ownable {
      *
      */
     uint256 public decayingTokens;
-    uint256 private lastGlobalUpdate;
+    uint256 private _lastGlobalUpdate;
     /**
      * @notice The amount of decay to occur per second.
      * @dev Technically if you want a yearly charge of 5%, this needs to be greater than 5% / 1 year in seconds.
@@ -76,14 +76,16 @@ contract DemurrageToken is ERC20, Ownable {
      *
      */
     uint256 public decayPercentPerSecond;
-    uint256 private cumulativeTokensPaid;
-    uint256 private cumulativeDecaying;
+    uint256 private _cumulativeTokensPaid;
+    uint256 private _cumulativeDecaying;
 
     // All addresses that are not exposed to decay.
     mapping(address => bool) public safeHavens;
-    mapping(address => uint256) private lastUserUpdate;
-    mapping(address => uint256) private lastUserTokensPaid;
-    mapping(address => uint256) private lastUserDecaying;
+    mapping(address => uint256) private _lastUserUpdate;
+    mapping(address => uint256) private _lastUserTokensPaid;
+    mapping(address => uint256) private _lastUserDecaying;
+
+    error OnlyBeneficiaryOrOwner();
 
     /**
      * @dev Read above for an explanation of _decayPercentPerSecond.
@@ -135,16 +137,16 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function _updateGlobalBalance() internal {
         // Time since last update.
-        uint256 timeElapsed = block.timestamp - lastGlobalUpdate;
+        uint256 timeElapsed = block.timestamp - _lastGlobalUpdate;
 
         uint256 globalPercentOwed = decayPercentPerSecond * timeElapsed;
-        uint256 globalTokensOwed = decayingTokens * globalPercentOwed / DIVISOR;
+        uint256 globalTokensOwed = decayingTokens * globalPercentOwed / _DIVISOR;
         // If we owe more than there are, cap it.
         globalTokensOwed = globalTokensOwed > decayingTokens ? decayingTokens : globalTokensOwed;
 
-        cumulativeTokensPaid += globalTokensOwed;
-        cumulativeDecaying += decayingTokens * (block.timestamp - lastGlobalUpdate);
-        lastGlobalUpdate = block.timestamp;
+        _cumulativeTokensPaid += globalTokensOwed;
+        _cumulativeDecaying += decayingTokens * (block.timestamp - _lastGlobalUpdate);
+        _lastGlobalUpdate = block.timestamp;
 
         // Add balance to beneficiary.
         /**
@@ -164,9 +166,9 @@ contract DemurrageToken is ERC20, Ownable {
     function _updateUserBalance(address _user) internal returns (uint256 newBalance) {
         newBalance = balanceOf(_user);
         _balances[_user] = newBalance;
-        lastUserDecaying[_user] = cumulativeDecaying;
-        lastUserTokensPaid[_user] = cumulativeTokensPaid;
-        lastUserUpdate[_user] = block.timestamp;
+        _lastUserDecaying[_user] = _cumulativeDecaying;
+        _lastUserTokensPaid[_user] = _cumulativeTokensPaid;
+        _lastUserUpdate[_user] = block.timestamp;
     }
 
     /**
@@ -175,9 +177,9 @@ contract DemurrageToken is ERC20, Ownable {
      *
      */
     function _calculateDecayedTokens(address _user) internal view returns (uint256 tokensOwed) {
-        uint256 timeElapsed = block.timestamp - lastUserUpdate[_user];
-        uint256 avgUnproductive = cumulativeDecaying - lastUserDecaying[_user] / timeElapsed;
-        uint256 avgTokensPaid = cumulativeTokensPaid - lastUserTokensPaid[_user] / timeElapsed;
+        uint256 timeElapsed = block.timestamp - _lastUserUpdate[_user];
+        uint256 avgUnproductive = _cumulativeDecaying - _lastUserDecaying[_user] / timeElapsed;
+        uint256 avgTokensPaid = _cumulativeTokensPaid - _lastUserTokensPaid[_user] / timeElapsed;
 
         // These 2 averages give us the average percent paid and can charge our balance based on that.
         tokensOwed = _balances[_user] * avgTokensPaid / avgUnproductive;
@@ -278,7 +280,9 @@ contract DemurrageToken is ERC20, Ownable {
      *
      */
     function transferBeneficiary(address _newBeneficiary) external {
-        require(msg.sender == beneficiary || msg.sender == owner(), "Only beneficiary or owner may call this function.");
+        if (msg.sender != beneficiary || msg.sender == owner()) {
+            revert OnlyBeneficiaryOrOwner();
+        }
 
         _updateGlobalBalance();
         _updateUserBalance(beneficiary);

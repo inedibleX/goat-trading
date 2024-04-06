@@ -23,11 +23,13 @@ struct Users {
     address alice;
     address bob;
     address treasury;
+    address owner;
 }
 
 contract BaseTokenTest is Test {
     uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
     uint32 private constant _MAX_UINT32 = type(uint32).max;
+    address pair;
     TokenFactory tokenFactory;
     GoatV1Factory factory;
     GoatV1Router router;
@@ -49,7 +51,8 @@ contract BaseTokenTest is Test {
             whale: makeAddr("whale"),
             alice: makeAddr("alice"),
             bob: makeAddr("bob"),
-            treasury: makeAddr("treasury")
+            treasury: makeAddr("treasury"),
+            owner: makeAddr("owner")
         });
         vm.warp(300 days);
 
@@ -59,6 +62,6 @@ contract BaseTokenTest is Test {
         // Testing factory probably works well enough just through tests of the token as long as pool is tested
         // Tests for each token type start with
         factory = new GoatV1Factory(address(weth));
-        tokenFactory = new TokenFactory(address(factory));
+        tokenFactory = new TokenFactory(address(factory), address(weth));
     }
 }

@@ -17,9 +17,13 @@ contract VaultToken is TaxToken {
     // Amount of Ether in this contract owed to the vault.
     uint256 public vaultEth;
 
-    constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _vaultPercent)
-        TaxToken(_name, _symbol, _initialSupply)
-    {
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        uint256 _initialSupply,
+        uint256 _vaultPercent,
+        address _weth
+    ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         vaultPercent = _vaultPercent;
     }
 
@@ -50,14 +54,14 @@ contract VaultToken is TaxToken {
     function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
         address[] memory path = new address[](2);
         path[0] = address(this);
-        path[1] = WETH;
+        path[1] = _WETH;
 
         tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, WETH);
-        if (ethValue > minSell) {
+        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
+        if (ethValue > _minSell) {
             // How do we make impact minor here...
             try IRouter(dex).swapExactTokensForEth(tokens, 0, path, address(this), block.timestamp) {
-                uint256 ethForVault = ethValue * vaultPercent / DIVISOR;
+                uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
                 vaultEth += ethForVault;
                 payable(treasury).transfer(ethValue - ethForVault);
             } catch (bytes memory) {}
@@ -80,7 +84,7 @@ contract VaultToken is TaxToken {
      *
      */
     function changeVaultPercent(uint256 _newVaultPercent) external onlyOwnerOrTreasury {
-        require(_newVaultPercent <= DIVISOR, "New vault percent too high.");
+        require(_newVaultPercent <= _DIVISOR, "New vault percent too high.");
         vaultPercent = _newVaultPercent;
     }
 }
