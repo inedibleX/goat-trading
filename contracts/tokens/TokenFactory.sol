@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
-// import console2 from foundry
-
-import {console2} from "forge-std/Test.sol";
 
 import {TaxToken} from "./TaxToken.sol";
 import {PlainToken} from "./PlainToken.sol";
@@ -57,6 +54,7 @@ contract TokenFactory {
     address private immutable _weth;
 
     error TokenAmountForPoolTooLow();
+    error InitialEthNotAccepted();
 
     constructor(address factory_, address weth_) {
         _factory = IGoatFactory(factory_);
@@ -90,6 +88,10 @@ contract TokenFactory {
         GoatTypes.InitParams memory initParams
     ) external payable returns (address tokenAddress, address pool) {
         // Create the initial token.
+
+        if (initParams.initialEth != 0) {
+            revert InitialEthNotAccepted();
+        }
         IToken token;
         if (_type == TokenType.PLAIN) {
             token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
@@ -110,13 +112,14 @@ contract TokenFactory {
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
         pool = _factory.createPair(tokenAddress, initParams);
-        (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
+        uint256 bootstrapTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
-        uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
+
         if (bootstrapTokenAmt < _totalSupply / 10) revert TokenAmountForPoolTooLow();
 
-        token.approve(pool, bootstrapTokenAmt);
+        token.transfer(pool, bootstrapTokenAmt);
+        IGoatPair(pool).mint(_owner);
 
         // Set taxes for dex, transfer all ownership to owner.
         if (_type == TokenType.DEMURRAGE) {

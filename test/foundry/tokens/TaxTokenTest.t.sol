@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import {BaseTokenTest, TaxToken} from "./BaseTokenTest.t.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+import {BaseTokenTest, TaxToken, TokenFactory} from "./BaseTokenTest.t.sol";
 
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
+import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -16,31 +19,262 @@ import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 // 6. Ownership things are correct
 
 contract TaxTokenTest is BaseTokenTest {
+    enum RevertType {
+        None,
+        NonZeroInitialEth
+    }
     // Test all functionality of plain tax tokens
-    function launch() public {
+
+    uint256 private totalSupply = 1e21;
+    uint256 private bootstrapTokenAmount;
+
+    function createTokenAndAddLiquidity(GoatTypes.InitParams memory initParams, RevertType revertType) public {
+        bootstrapTokenAmount = GoatLibrary.getActualBootstrapTokenAmount(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+
+        if (revertType == RevertType.NonZeroInitialEth) {
+            vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
+        }
+        (address token, address pool) = tokenFactory.createToken(
+            "TaxToken", "TT1", totalSupply, 100, 100, users.owner, TokenType.TAX, 1000, initParams
+        );
+
+        plainTax = TaxToken(token);
+        pair = pool;
+    }
+
+    function testCreateTokenSuccess() public {
         GoatTypes.InitParams memory initParams;
         initParams.bootstrapEth = 10e18;
         initParams.initialEth = 0;
         initParams.initialTokenMatch = 1000e18;
         initParams.virtualEth = 10e18;
 
-        (address token, address pool) =
-            tokenFactory.createToken("TaxToken", "TT1", 1e21, 100, 100, users.owner, TokenType.TAX, 1000, initParams);
+        createTokenAndAddLiquidity(initParams, RevertType.None);
 
-        plainTax = TaxToken(token);
-        pair = pool;
+        uint256 pairBalance = plainTax.balanceOf(pair);
+        uint256 ownerBalance = plainTax.balanceOf(users.owner);
+
+        uint256 ownerLpBalance = IERC20(pair).balanceOf(users.owner);
+        uint256 expectedLpBal = 100e18 - 1000;
+
+        assertEq(pairBalance, bootstrapTokenAmount, "Pair balance should be equal to bootstrap token amount");
+        assertEq(
+            ownerBalance,
+            totalSupply - bootstrapTokenAmount,
+            "Owner balance should be equal to total supply minus bootstrap token amount"
+        );
+        assertEq(ownerLpBalance, expectedLpBal);
+
+        address treasury = plainTax.treasury();
+        address dex = plainTax.dex();
+        address owner = plainTax.owner();
+
+        assertEq(treasury, users.owner, "Treasury should be owner");
+        assertEq(dex, address(0), "Dex should be address(0)");
+        assertEq(owner, users.owner, "Owner should be owner");
     }
 
-    function testPlainTax() public {
-        launch();
-        // Tests that tokens transfer correctly with and without taxes.
-        _testTaxTransfers();
-        // Test that taxes are added to the treasury correctly.
-        _testPlainTaxUpdates();
-        // Tests that tokens are sold or not sold correctly in the pool.
-        _testPlainTaxSelling();
-        // Tests all privileged functions of the token.
-        _testPlainTaxPrivileged();
+    function testCreateTokenRevertOnInitialEthNonZero() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 100;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.NonZeroInitialEth);
+    }
+
+    function testTransferTreasurySuccess() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.treasury(), users.owner, "Treasury should be owner");
+
+        vm.startPrank(users.owner);
+        plainTax.transferTreasury(users.treasury);
+        vm.stopPrank();
+
+        address treasury = plainTax.treasury();
+        assertEq(treasury, users.treasury, "Treasury should be treasury");
+    }
+
+    function testTransferTreasuryRevertNotOwner() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.treasury(), users.owner, "Treasury should be owner");
+
+        vm.startPrank(users.bob);
+        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        plainTax.transferTreasury(users.treasury);
+        vm.stopPrank();
+    }
+
+    function testChangeMinSellSuccess() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.minSell(), 0.1 ether, "Min sell should be 0");
+
+        vm.startPrank(users.owner);
+        plainTax.changeMinSell(1 ether);
+        vm.stopPrank();
+
+        assertEq(plainTax.minSell(), 1 ether, "Min sell should be 100");
+    }
+
+    function testChangeMinSellRevertOnNotOwnerOrTreasury() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.minSell(), 0.1 ether, "Min sell should be 0");
+
+        vm.startPrank(users.bob);
+        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        plainTax.changeMinSell(1 ether);
+        vm.stopPrank();
+    }
+
+    function testChangeDexSuccess() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
+
+        vm.startPrank(users.owner);
+        plainTax.changeDex(users.whale);
+        vm.stopPrank();
+
+        assertEq(plainTax.dex(), users.whale, "Dex should be whale");
+    }
+
+    function testChangeDexRevertOnNotOwnerOrTreasury() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
+
+        vm.startPrank(users.bob);
+        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        plainTax.changeDex(users.whale);
+        vm.stopPrank();
+    }
+
+    function testSetTaxesSuccess() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.buyTax(pair), 100, "Buy tax should be 100");
+        assertEq(plainTax.sellTax(pair), 100, "Sell tax should be 100");
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(pair, 200, 200);
+        vm.stopPrank();
+
+        assertEq(plainTax.buyTax(pair), 200, "Buy tax should be 200");
+        assertEq(plainTax.sellTax(pair), 200, "Sell tax should be 200");
+    }
+
+    function testSetTaxesRevertOnNotOwner() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.buyTax(pair), 100, "Buy tax should be 100");
+        assertEq(plainTax.sellTax(pair), 100, "Sell tax should be 100");
+        vm.startPrank(users.owner);
+        plainTax.transferTreasury(users.treasury);
+        vm.stopPrank();
+
+        vm.startPrank(users.treasury);
+        vm.expectRevert("Ownable: caller is not the owner");
+        plainTax.setTaxes(pair, 200, 200);
+        vm.stopPrank();
+    }
+
+    function testTaxTransferSuccessWithNecessaryUpdates() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.transferTreasury(users.treasury);
+        plainTax.setTaxes(users.dex, 200, 200);
+        uint256 transferAmount = 10e18;
+        plainTax.transfer(users.dex, transferAmount);
+        vm.stopPrank();
+
+        uint256 expectedTax = transferAmount * 200 / 10000;
+
+        assertEq(
+            plainTax.balanceOf(users.dex),
+            transferAmount - expectedTax,
+            "Dex balance should be transfer amount minus tax"
+        );
+        uint256 taxContractBal = plainTax.balanceOf(address(plainTax));
+        assertEq(taxContractBal, expectedTax, "Treasury balance should be tax amount");
+
+        transferAmount = 5e18;
+        vm.startPrank(users.dex);
+        plainTax.transfer(users.bob, transferAmount);
+        vm.stopPrank();
+
+        expectedTax = transferAmount * 200 / 10000;
+
+        assertEq(
+            plainTax.balanceOf(users.bob),
+            transferAmount - expectedTax,
+            "Dex balance should be transfer amount minus tax"
+        );
+
+        assertEq(
+            plainTax.balanceOf(address(plainTax)) - taxContractBal, expectedTax, "Treasury balance should be tax amount"
+        );
     }
 
     // This tests only that balances are applied and removed correctly from addresses.

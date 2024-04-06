@@ -29,7 +29,7 @@ contract TaxToken is ERC20, Ownable {
     uint256 internal constant _TAX_MAX = 1_000;
     address internal immutable _WETH;
 
-    uint256 internal _minSell;
+    uint256 _minSell;
 
     // Team address that will receive tax profits.
     address public treasury;
@@ -44,6 +44,7 @@ contract TaxToken is ERC20, Ownable {
 
     /* ********************************************* ERRORS ********************************************* */
     error TaxTooHigh();
+    error OnlyOwnerOrTreasury();
 
     /* ********************************************* CONSTRUCTOR ********************************************* */
     constructor(string memory _name, string memory _symbol, uint256 _initialSupply, address _weth)
@@ -140,7 +141,10 @@ contract TaxToken is ERC20, Ownable {
         path[1] = _WETH;
 
         tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
+
+        // TODO: uncomment this later
+        // ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
+
         if (ethValue > _minSell) {
             // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
             tokens = tokens * _minSell / ethValue;
@@ -159,7 +163,7 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     modifier onlyOwnerOrTreasury() {
-        require(msg.sender == treasury || msg.sender == owner(), "Only owner or treasury may call this function.");
+        if (msg.sender != treasury && msg.sender != owner()) revert OnlyOwnerOrTreasury();
         _;
     }
 
@@ -208,5 +212,11 @@ contract TaxToken is ERC20, Ownable {
 
         if (_buyTax > 0 || _sellTax > 0) taxed[_dex] = true;
         else taxed[_dex] = false;
+    }
+
+    /* ********************************************* VIEW FUNCTIONS ********************************************* */
+
+    function minSell() external view returns (uint256) {
+        return _minSell;
     }
 }
