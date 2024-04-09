@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {BaseTest} from "../BaseTest.t.sol";
+import {BaseTest, MockERC20} from "../BaseTest.t.sol";
 import {GoatErrors} from "../../../contracts/library/GoatErrors.sol";
 import {GoatV1Pair} from "../../../contracts/exchange/GoatV1Pair.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -9,6 +9,7 @@ import {console2} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
+import {FeeOnTransferToken} from "../../../contracts/mock/FeeOnTransferToken.sol";
 
 contract GoatV1RouterTest is BaseTest {
     function testConstructor() public {
@@ -1491,5 +1492,279 @@ contract GoatV1RouterTest is BaseTest {
             router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, address(this), block.timestamp);
         router.withdrawFees(address(token), address(this));
         assertEq(weth.balanceOf(address(this)), balanceBefore2 + amountWethOut); // No fees should be there
+    }
+
+    /* ----------------------- FEE ON TRANSFER TOKEN TEST ----------------------- */
+    function testSwapWethToTokenSuccessFeeOnTransferToken() public {
+        token = MockERC20(address(new FeeOnTransferToken()));
+        _addLiquidityEthAndConvertToAmm();
+        weth.transfer(swapper, 5e18); // send some weth to swapper
+        vm.startPrank(swapper);
+        weth.approve(address(router), 5e18);
+
+        router.swapWethForExactTokensSupportingFeeOnTranferTokens(
+            5e18,
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+
+        uint256 fees = (5e18 * 99) / 10000; // 1% fee
+        //calculate amt out after deducting fee
+        uint256 numerator = (5e18 - fees) * (250e18);
+        uint256 denominator = (10e18) + (5e18 - fees);
+        uint256 expectedAmountOut = numerator / denominator;
+        expectedAmountOut = (expectedAmountOut * 99) / 100;
+        assert(token.balanceOf(swapper) < expectedAmountOut); // Some fee is charged on transfer soo swap amount is less
+        vm.stopPrank();
+    }
+
+    function testSwapEthToTokenSuccessFeeOnTransferToken() public {
+        token = MockERC20(address(new FeeOnTransferToken()));
+        _addLiquidityEthAndConvertToAmm();
+        vm.deal(swapper, 5e18); // send some eth to swapper
+        vm.startPrank(swapper);
+        router.swapETHForExactTokensSupportingFeeOnTransferTokens{value: 5e18}(
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+
+        uint256 fees = (5e18 * 99) / 10000; // 1% fee
+        //calculate amt out after deducting fee
+        uint256 numerator = (5e18 - fees) * (250e18);
+        uint256 denominator = (10e18) + (5e18 - fees);
+        uint256 expectedAmountOut = numerator / denominator;
+        expectedAmountOut = (expectedAmountOut * 99) / 100;
+        assert(token.balanceOf(swapper) < expectedAmountOut);
+
+        vm.stopPrank();
+    }
+
+    function testSwapTokenToEthFeeOnTransferTokens() public {
+        token = MockERC20(address(new FeeOnTransferToken()));
+
+        _addLiquidityAndConvertToAmm();
+        weth.transfer(swapper, 5e18);
+        vm.startPrank(swapper);
+        weth.approve(address(router), 5e18);
+        router.swapWethForExactTokensSupportingFeeOnTranferTokens(
+            5e18,
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        uint256 amountTokenIn = token.balanceOf(swapper);
+
+        token.approve(address(router), amountTokenIn);
+
+        router.swapExactTokensForWethSupportingFeeOnTransferTokens(
+            amountTokenIn, // amountIn
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        assert(weth.balanceOf(swapper) > 4e18); // atleast should get 4e18
+        assertEq(token.balanceOf(swapper), 0); // all tokens should be swapped
+        vm.stopPrank();
+    }
+
+    /* --------------------------- VIEW FUNCTIONS TEST -------------------------- */
+
+    function testGetAmountsOutPresaleForWethIn() public {
+        _addLiquidityWithoutEth();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+        uint256 tokenAmountForAmm =
+            GoatLibrary.getBootstrapTokenAmountForAmm(vars.virtualEth, vars.bootstrapEth, vars.initialTokenMatch);
+        uint256 expectedAmountOut = GoatLibrary.getTokenAmountOutPresale(
+            5e18,
+            vars.virtualEth,
+            vars.reserveEth,
+            vars.bootstrapEth,
+            vars.reserveToken,
+            vars.virtualToken,
+            tokenAmountForAmm
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256[] memory output = router.getAmountsOut(uint256(5e18), path);
+
+        assertEq(output[0], expectedAmountOut);
+    }
+
+    function testGetAmountsOutPresaleForTokenIn() public {
+        _addLiquidityWithSomeEth();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        uint256 expectedAmountOut = GoatLibrary.getWethAmountOutPresale(
+            100e18, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256[] memory output = router.getAmountsOut(uint256(100e18), path);
+
+        assertEq(output[0], expectedAmountOut);
+    }
+
+    function testGetAmountsOutAmmForWethIn() public {
+        _addLiquidityAndConvertToAmm();
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+
+        (uint112 reserveWeth, uint112 reserveToken) = pair.getReserves();
+        uint256 expectedAmountOut = GoatLibrary.getTokenAmountOutAmm(5e18, reserveWeth, reserveToken);
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256[] memory output = router.getAmountsOut(uint256(5e18), path);
+
+        assertEq(output[0], expectedAmountOut);
+    }
+
+    function testGetAmountsOutAmmForTokenIn() public {
+        _addLiquidityAndConvertToAmm();
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+
+        (uint112 reserveWeth, uint112 reserveToken) = pair.getReserves();
+        uint256 expectedAmountOut = GoatLibrary.getWethAmountOutAmm(100e18, reserveWeth, reserveToken);
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256[] memory output = router.getAmountsOut(uint256(100e18), path);
+
+        assertEq(output[0], expectedAmountOut);
+    }
+
+    function testGetAmountsInPresaleForWethOut() public {
+        _addLiquidityWithSomeEth();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        uint256 expectedAmountIn = GoatLibrary.getTokenAmountIn(
+            3e18, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken, pair.vestingUntil()
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256[] memory output = router.getAmountsIn(uint256(3e18), path);
+
+        assertEq(output[0], expectedAmountIn);
+    }
+
+    function testGetAmountsInPresaleForTokenOut() public {
+        _addLiquidityWithSomeEth();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        uint256 expectedAmountIn = GoatLibrary.getWethAmountIn(
+            100e18,
+            vars.virtualEth,
+            vars.virtualToken,
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.bootstrapEth,
+            vars.initialTokenMatch,
+            pair.vestingUntil()
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256[] memory output = router.getAmountsIn(uint256(100e18), path);
+
+        assertEq(output[0], expectedAmountIn);
+    }
+
+    function testGetAmountsInAmmForWethOut() public {
+        _addLiquidityAndConvertToAmm();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        uint256 expectedAmountIn = GoatLibrary.getTokenAmountIn(
+            8e18, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken, pair.vestingUntil()
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256[] memory output = router.getAmountsIn(uint256(8e18), path);
+
+        assertEq(output[0], expectedAmountIn);
+    }
+
+    function testGetAmountsInAmmForTokenOut() public {
+        _addLiquidityAndConvertToAmm();
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        uint256 expectedAmountIn = GoatLibrary.getWethAmountIn(
+            200e18,
+            vars.virtualEth,
+            vars.virtualToken,
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.bootstrapEth,
+            vars.initialTokenMatch,
+            pair.vestingUntil()
+        );
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256[] memory output = router.getAmountsIn(uint256(200e18), path);
+
+        assertEq(output[0], expectedAmountIn);
     }
 }
