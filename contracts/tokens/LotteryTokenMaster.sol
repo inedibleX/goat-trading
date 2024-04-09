@@ -10,6 +10,10 @@ interface ILotteryToken {
     function payWinner(address user, uint256 entryAmount) external;
 }
 
+interface IGoatPair {
+    function mint(address to) external returns (uint256 liquidity);
+}
+
 /**
  * @title Lottery Token Master
  * @author Robert M.C. Forster
@@ -85,7 +89,9 @@ contract LotteryTokenMaster {
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
         require(bootstrapTokenAmt >= _totalSupply / 10, "Must use at least 10% of total supply in the pool.");
-        token.approve(pool, bootstrapTokenAmt);
+
+        token.transfer(pool, bootstrapTokenAmt);
+        IGoatPair(pool).mint(owner);
 
         token.setTaxes(pool, _buyTax, _sellTax);
         token.transferTreasury(owner);

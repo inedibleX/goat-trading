@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import {TaxToken} from "./TaxToken.sol";
-import {PlainToken} from "./PlainToken.sol";
-import {DemurrageToken} from "./DemurrageToken.sol";
+import {TaxShareToken} from "./TaxShareToken.sol";
+import {TaxBurnToken} from "./TaxBurnToken.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
@@ -44,7 +43,7 @@ enum TokenType {
  * @dev We'll make a more upgradeable version of this soon to be able to add more tokens types. Right now
  *      we're going for simplicity.
  */
-contract TokenFactory {
+contract TokenFactory2 {
     IGoatFactory private _factory;
     address private immutable _weth;
 
@@ -88,13 +87,12 @@ contract TokenFactory {
             revert InitialEthNotAccepted();
         }
         IToken token;
-        if (_type == TokenType.PLAIN) {
-            token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
-        } else if (_type == TokenType.DEMURRAGE) {
-            token = IToken(address(new DemurrageToken(_name, _symbol, _totalSupply, _percent)));
-        } else if (_type == TokenType.TAX) {
-            token = IToken(address(new TaxToken(_name, _symbol, _totalSupply, _weth)));
+        if (_type == TokenType.TAXSHARE) {
+            token = IToken(address(new TaxShareToken(_name, _symbol, _totalSupply, _percent, _weth)));
+        } else if (_type == TokenType.TAXBURN) {
+            token = IToken(address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent, _weth)));
         }
+
         tokenAddress = address(token);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
@@ -108,16 +106,11 @@ contract TokenFactory {
         token.transfer(pool, bootstrapTokenAmt);
         IGoatPair(pool).mint(_owner);
 
-        // Set taxes for dex, transfer all ownership to owner.
-        if (_type == TokenType.DEMURRAGE) {
-            token.transferBeneficiary(_owner);
-        } else if (_type != TokenType.PLAIN) {
-            token.setTaxes(pool, _buyTax, _sellTax);
-            token.transferTreasury(_owner);
-        }
+        token.setTaxes(pool, _buyTax, _sellTax);
+        token.transferTreasury(_owner);
 
         // Plain tokens do not need ownership transfer.
-        if (_type != TokenType.PLAIN) token.transferOwnership(_owner);
+        token.transferOwnership(_owner);
 
         // Send all tokens back to owner.
         uint256 remainingBalance = token.balanceOf(address(this));
