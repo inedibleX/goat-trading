@@ -87,15 +87,16 @@ contract TokenFactory {
         if (initParams.initialEth != 0) {
             revert InitialEthNotAccepted();
         }
-        IToken token;
+
         if (_type == TokenType.PLAIN) {
-            token = IToken(address(new PlainToken(_name, _symbol, _totalSupply)));
+            tokenAddress = address(new PlainToken(_name, _symbol, _totalSupply));
         } else if (_type == TokenType.DEMURRAGE) {
-            token = IToken(address(new DemurrageToken(_name, _symbol, _totalSupply, _percent)));
+            tokenAddress = address(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
         } else if (_type == TokenType.TAX) {
-            token = IToken(address(new TaxToken(_name, _symbol, _totalSupply, _weth)));
+            tokenAddress = address(new TaxToken(_name, _symbol, _totalSupply, _weth));
         }
-        tokenAddress = address(token);
+
+        IToken token = IToken(tokenAddress);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
         pool = _factory.createPair(tokenAddress, initParams);

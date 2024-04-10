@@ -86,14 +86,13 @@ contract TokenFactory3 {
         if (initParams.initialEth != 0) {
             revert InitialEthNotAccepted();
         }
-        IToken token;
         if (_type == TokenType.DIVIDEND) {
-            token = IToken(address(new DividendToken(_name, _symbol, _totalSupply, _weth)));
+            tokenAddress = address(new DividendToken(_name, _symbol, _totalSupply, _weth));
         } else if (_type == TokenType.VAULT) {
-            token = IToken(address(new VaultToken(_name, _symbol, _totalSupply, _percent, _weth)));
+            tokenAddress = address(new VaultToken(_name, _symbol, _totalSupply, _percent, _weth));
         }
-        tokenAddress = address(token);
 
+        IToken token = IToken(tokenAddress);
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
         pool = _factory.createPair(tokenAddress, initParams);
         uint256 bootstrapTokenAmt = GoatLibrary.getActualBootstrapTokenAmount(

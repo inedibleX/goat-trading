@@ -86,14 +86,12 @@ contract TokenFactory2 {
         if (initParams.initialEth != 0) {
             revert InitialEthNotAccepted();
         }
-        IToken token;
         if (_type == TokenType.TAXSHARE) {
-            token = IToken(address(new TaxShareToken(_name, _symbol, _totalSupply, _percent, _weth)));
+            tokenAddress = address(new TaxShareToken(_name, _symbol, _totalSupply, _percent, _weth));
         } else if (_type == TokenType.TAXBURN) {
-            token = IToken(address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent, _weth)));
+            tokenAddress = address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent, _weth));
         }
-
-        tokenAddress = address(token);
+        IToken token = IToken(tokenAddress);
 
         // Create pool, figure out how many tokens are needed, approve that token amount, add liquidity.
         pool = _factory.createPair(tokenAddress, initParams);
