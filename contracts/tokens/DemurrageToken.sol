@@ -99,6 +99,8 @@ contract DemurrageToken is ERC20, Ownable {
         ERC20(_name, _symbol)
     {
         _mint(msg.sender, _initialSupply);
+        // TODO: is thre a need to check _decayPercentPor second?
+
         decayPercentPerSecond = _decayPercentPerSecond;
         safeHavens[beneficiary] = true;
     }
@@ -178,11 +180,15 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function _calculateDecayedTokens(address _user) internal view returns (uint256 tokensOwed) {
         uint256 timeElapsed = block.timestamp - _lastUserUpdate[_user];
-        uint256 avgUnproductive = _cumulativeDecaying - _lastUserDecaying[_user] / timeElapsed;
-        uint256 avgTokensPaid = _cumulativeTokensPaid - _lastUserTokensPaid[_user] / timeElapsed;
+        if (timeElapsed != 0) {
+            uint256 avgUnproductive = _cumulativeDecaying - _lastUserDecaying[_user] / timeElapsed;
+            uint256 avgTokensPaid = _cumulativeTokensPaid - _lastUserTokensPaid[_user] / timeElapsed;
 
-        // These 2 averages give us the average percent paid and can charge our balance based on that.
-        tokensOwed = _balances[_user] * avgTokensPaid / avgUnproductive;
+            // These 2 averages give us the average percent paid and can charge our balance based on that.
+            if (avgUnproductive != 0) {
+                tokensOwed = _balances[_user] * avgTokensPaid / avgUnproductive;
+            }
+        }
     }
 
     // OpenZeppelin ERC20 _update with only change being _updateRewards calls.
@@ -251,7 +257,13 @@ contract DemurrageToken is ERC20, Ownable {
                 _balances[to] += value;
             }
 
-            if (toSafeHaven) decayingTokens -= value;
+            if (toSafeHaven) {
+                if (decayingTokens < value) {
+                    decayingTokens = 0;
+                } else {
+                    decayingTokens -= value;
+                }
+            }
         }
 
         emit Transfer(from, to, value);
@@ -280,7 +292,7 @@ contract DemurrageToken is ERC20, Ownable {
      *
      */
     function transferBeneficiary(address _newBeneficiary) external {
-        if (msg.sender != beneficiary || msg.sender == owner()) {
+        if (msg.sender != beneficiary && msg.sender != owner()) {
             revert OnlyBeneficiaryOrOwner();
         }
 
