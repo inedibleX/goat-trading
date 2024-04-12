@@ -524,7 +524,7 @@ contract GoatV1RouterTest is BaseTest {
 
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -669,7 +669,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -691,7 +691,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -746,7 +746,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 2e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 2e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             2e18,
             0, // no slippage protection for now
             address(token),
@@ -767,7 +767,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 2e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 2e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             2e18,
             0, // no slippage protection for now
             address(token),
@@ -811,7 +811,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -832,7 +832,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -877,7 +877,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        router.swapWethForExactTokens(
+        router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -908,7 +908,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 10e18); // send some weth to swapper
         vm.startPrank(swapper);
         weth.approve(address(router), 10e18);
-        uint256 amountOut = router.swapWethForExactTokens(
+        uint256 amountOut = router.swapExactWethForTokens(
             10e18,
             0, // no slippage protection for now
             address(token),
@@ -948,7 +948,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.warp(block.timestamp + 31 days); // forward time to end vesting
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        router.swapWethForExactTokens(5e18, 0, address(token), swapper, block.timestamp);
+        router.swapExactWethForTokens(5e18, 0, address(token), swapper, block.timestamp);
         vm.stopPrank();
         assertEq(pair.getPresaleBalance(swapper), 0);
     }
@@ -996,7 +996,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.startPrank(swapper);
         weth.approve(address(router), 50e18);
         //Swap large amount to met the reuired 0.1 treshold
-        router.swapWethForExactTokens(50e18, 0, address(token), swapper, block.timestamp);
+        router.swapExactWethForTokens(50e18, 0, address(token), swapper, block.timestamp);
         vm.stopPrank();
         uint256 fees = (50e18 * 99) / 10000; // 1% fee
         uint256 liquidityFee = (fees * 40) / 100;
@@ -1014,7 +1014,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
         vm.expectRevert(GoatErrors.GoatPoolDoesNotExist.selector);
-        router.swapWethForExactTokens(
+        router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -1030,7 +1030,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
         vm.expectRevert(GoatErrors.InsufficientAmountOut.selector);
-        router.swapWethForExactTokens(
+        router.swapExactWethForTokens(
             5e18,
             300e18, // amountOutMin is set higher
             address(token),
@@ -1072,7 +1072,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18);
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        amountOut = router.swapWethForExactTokens(
+        amountOut = router.swapExactWethForTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -1502,7 +1502,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
 
-        router.swapWethForExactTokensSupportingFeeOnTranferTokens(
+        router.swapExactWethForTokensSupportingFeeOnTranferTokens(
             5e18,
             0, // no slippage protection for now
             address(token),
@@ -1550,7 +1550,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(swapper, 5e18);
         vm.startPrank(swapper);
         weth.approve(address(router), 5e18);
-        router.swapWethForExactTokensSupportingFeeOnTranferTokens(
+        router.swapExactWethForTokensSupportingFeeOnTranferTokens(
             5e18,
             0, // no slippage protection for now
             address(token),

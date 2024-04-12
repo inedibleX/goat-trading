@@ -164,7 +164,7 @@ contract GoatV1Router is ReentrancyGuard {
 
     /* ----------------------------- SWAP FUNCTIONS FOR FEE ON TRANSFER TOKENS ----------------------------- */
 
-    function swapWethForExactTokensSupportingFeeOnTranferTokens(
+    function swapExactWethForTokensSupportingFeeOnTranferTokens(
         uint256 amountIn,
         uint256 amountOutMin,
         address token,
@@ -198,7 +198,7 @@ contract GoatV1Router is ReentrancyGuard {
     }
 
     /* ----------------------------- SWAP FUNCTIONS  ----------------------------- */
-    function swapWethForExactTokens(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
+    function swapExactWethForTokens(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
         external
         ensure(deadline)
         nonReentrant
@@ -447,14 +447,15 @@ contract GoatV1Router is ReentrancyGuard {
         }
         address token = path[0] == WETH ? path[1] : path[0];
         amounts = new uint256[](2);
+        amounts[0] = amountIn;
         if (path[0] == WETH) {
             // Token in is WETH
             (uint256 amountOut,) = _getAmountTokenOut(amountIn, 0, token);
-            amounts[0] = amountOut;
+            amounts[1] = amountOut;
         } else {
             // Token out is WETH
             (uint256 amountOut,) = _getWethAmountOut(amountIn, 0, token);
-            amounts[0] = amountOut;
+            amounts[1] = amountOut;
         }
     }
 
@@ -474,6 +475,7 @@ contract GoatV1Router is ReentrancyGuard {
         }
         address token = path[0] == WETH ? path[1] : path[0];
         amounts = new uint256[](2);
+        amounts[1] = amountOut;
         if (path[0] == WETH) {
             // Token in is WETH so, we ned to figure how much wethIn is needed for desired token amountOut
             uint256 amountIn = getWethAmountIn(amountOut, token);

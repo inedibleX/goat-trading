@@ -105,6 +105,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
+        } else {
             _sellTaxes();
         }
 

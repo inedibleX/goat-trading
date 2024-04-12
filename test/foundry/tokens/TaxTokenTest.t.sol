@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import {BaseTokenTest, TaxToken, TokenFactory} from "./BaseTokenTest.t.sol";
+import {BaseTokenTest, TaxToken, TokenFactory, console2} from "./BaseTokenTest.t.sol";
 
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
@@ -19,10 +19,6 @@ import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 // 6. Ownership things are correct
 
 contract TaxTokenTest is BaseTokenTest {
-    enum RevertType {
-        None,
-        NonZeroInitialEth
-    }
     // Test all functionality of plain tax tokens
 
     uint256 private totalSupply = 1e21;
@@ -169,10 +165,10 @@ contract TaxTokenTest is BaseTokenTest {
         assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
 
         vm.startPrank(users.owner);
-        plainTax.changeDex(users.whale);
+        plainTax.changeDex(address(router));
         vm.stopPrank();
 
-        assertEq(plainTax.dex(), users.whale, "Dex should be whale");
+        assertEq(plainTax.dex(), address(router), "Dex should be whale");
     }
 
     function testChangeDexRevertOnNotOwnerOrTreasury() public {
@@ -244,6 +240,7 @@ contract TaxTokenTest is BaseTokenTest {
 
         vm.startPrank(users.owner);
         plainTax.transferTreasury(users.treasury);
+        plainTax.changeDex(address(router));
         plainTax.setTaxes(users.dex, 200, 200);
         uint256 transferAmount = 10e18;
         plainTax.transfer(users.dex, transferAmount);
@@ -277,30 +274,105 @@ contract TaxTokenTest is BaseTokenTest {
         );
     }
 
-    // This tests only that balances are applied and removed correctly from addresses.
-    // The actual updating for taxes to be given to a certain address is tested below
-    function _testTaxTransfers() private {
-        // 1. Transfer from one user to the next with no taxes
-        // 2. Check that the above does not have taxes removed
-        // 3. Transfer from one user to the next with buy taxes
-        // 4. Check that update is done correctly on from/to
-        // 5. Transfer from one user to the next with sell taxes
-        // (one of the users above is taxed on buys, one on sells)
-        // 6. Check that update is done correctly
+    function testSellTaxesSuccessWithNecessaryUpdates() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.transferTreasury(users.treasury);
+        plainTax.changeDex(address(router));
+        vm.stopPrank();
+        address[] memory path = new address[](2);
+        path[0] = address(router.WETH());
+        path[1] = address(plainTax);
+        uint256 amountIn = 12e18;
+        uint256[] memory amounts = router.getAmountsOut(amountIn, path);
+        vm.startPrank(users.whale);
+        // fund bob with some weth
+        weth.transfer(users.bob, 20e18);
+        weth.approve(address(router), amountIn);
+        router.swapExactWethForTokens(amountIn, amounts[1], address(plainTax), users.whale, block.timestamp);
+        vm.stopPrank();
+
+        amountIn = 2e18;
+        amounts = router.getAmountsOut(amountIn, path);
+
+        vm.startPrank(users.bob);
+        weth.approve(address(router), amountIn);
+        router.swapExactWethForTokens(amountIn, amounts[1], address(plainTax), users.bob, block.timestamp);
+        vm.stopPrank();
+        uint256 bobTaxTokenBal = plainTax.balanceOf(users.bob);
+        uint256 tax = amounts[1] * 100 / 10000;
+
+        assertEq(bobTaxTokenBal, amounts[1] - tax, "Bob tax token balance should be amount in minus tax");
+
+        uint256 amountToSell = plainTax.balanceOf(address(plainTax));
+        router.getAmountsOut(amountToSell, path);
+
+        uint256 taxBalBefore = plainTax.balanceOf(address(plainTax));
+        path[0] = address(plainTax);
+        path[1] = address(router.WETH());
+        amounts = router.getAmountsOut(taxBalBefore, path);
+
+        uint256 totalEthValue = amounts[1];
+
+        uint256 actualAmountOut = taxBalBefore * 0.1 ether / totalEthValue;
+
+        tax = actualAmountOut * 100 / 10000;
+
+        // change timestamp to bypass vesting period
+        vm.warp(block.timestamp + 10 days);
+        vm.startPrank(users.owner);
+        plainTax.transfer(users.alice, 10e18);
+        vm.stopPrank();
+        uint256 taxBalAfter = plainTax.balanceOf(address(plainTax));
+
+        uint256 treasuryBalAfter = weth.balanceOf(users.treasury);
+        assertGe(treasuryBalAfter, 0.1 ether);
+
+        assertEq(
+            taxBalAfter,
+            taxBalBefore - actualAmountOut + tax,
+            "Tax balance should be tax balance before minus actual amount out"
+        );
     }
 
-    function _testPlainTaxUpdates() private {
-        // 1. Make sure that treasury got all of the deducted transfers
-    }
+    function testSetTaxSuccessWithNecessaryUpdates() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
 
-    function _testPlainTaxSelling() private {
-        // 1. Make sure selling works correctly before pool is in the right mode
-        // 2. Update pool so selling should work
-        // 3. Make sure selling works correctly once tokens can be sold
-    }
+        createTokenAndAddLiquidity(initParams, RevertType.None);
 
-    function _testPlainTaxPrivileged() private {
-        // 1. Test that only owner can set taxes
-        // 2. Test that owner or treasury can set treasury address
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.bob, 200, 200);
+        vm.stopPrank();
+        bool taxed = plainTax.taxed(users.bob);
+        assertTrue(taxed, "Bob should be taxed");
+
+        uint256 buyTax = plainTax.buyTax(users.bob);
+        uint256 sellTax = plainTax.sellTax(users.bob);
+
+        assertEq(buyTax, 200, "Buy tax should be 200");
+        assertEq(sellTax, 200, "Sell tax should be 200");
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.bob, 0, 0);
+        vm.stopPrank();
+        taxed = plainTax.taxed(users.bob);
+        assertFalse(taxed, "Bob should not be taxed");
+
+        buyTax = plainTax.buyTax(users.bob);
+        sellTax = plainTax.sellTax(users.bob);
+
+        assertEq(buyTax, 0, "Buy tax should be 200");
+        assertEq(sellTax, 0, "Sell tax should be 200");
     }
 }

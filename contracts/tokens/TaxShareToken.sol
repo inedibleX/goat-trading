@@ -99,6 +99,7 @@ contract TaxShareToken is TaxToken {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
+        } else {
             _sellTaxes();
         }
 
@@ -133,25 +134,6 @@ contract TaxShareToken is TaxToken {
         // 1e18 is removed because rewardPerToken is in full tokens
         rewardPerTokenStored += reward / (_totalSupply / 1e18);
         _balances[address(this)] += _amount - reward;
-    }
-
-    /**
-     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
-     *
-     */
-    function _sellTaxes() internal virtual override returns (uint256 tokens, uint256 ethValue) {
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = _WETH;
-
-        tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
-        if (ethValue > _minSell) {
-            // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-            tokens = tokens * _minSell / ethValue;
-            try IRouter(dex).swapExactTokensForEth(tokens, 0, path, treasury, block.timestamp) {}
-                catch (bytes memory) {}
-        }
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */

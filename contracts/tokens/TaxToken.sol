@@ -5,14 +5,18 @@ import "./ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IRouter {
-    function getAmountsOut(uint256 amountIn, address[] memory path, address tokenOut) external returns (uint256);
-    function swapExactTokensForEth(
+    function getAmountsOut(uint256 amountIn, address[] memory path) external returns (uint256[] memory);
+
+    function swapExactTokensForWeth(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
+        external
+        returns (uint256 amountWethOut);
+    function swapExactTokensForWethSupportingFeeOnTransferTokens(
         uint256 amountIn,
-        uint256 minAmountOut,
-        address[] memory path,
+        uint256 amountOutMin,
+        address token,
         address to,
         uint256 deadline
-    ) external returns (uint256);
+    ) external;
 }
 
 /**
@@ -99,6 +103,7 @@ contract TaxToken is ERC20, Ownable {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
+        } else {
             _sellTaxes();
         }
 
@@ -142,16 +147,19 @@ contract TaxToken is ERC20, Ownable {
 
         tokens = _balances[address(this)];
 
-        // TODO: uncomment this later
-        // ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
-
-        if (ethValue > _minSell) {
-            // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-            tokens = tokens * _minSell / ethValue;
-            // Try/catch because during bootstrapping selling won't be allowed.
-            try IRouter(dex).swapExactTokensForEth(tokens, 0, path, treasury, block.timestamp) {}
-                catch (bytes memory) {}
-        }
+        // return if dex is not set
+        if (dex == address(0)) return (0, 0);
+        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
+            ethValue = amounts[1];
+            if (ethValue > _minSell) {
+                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
+                tokens = tokens * _minSell / ethValue;
+                // Try/catch because during bootstrapping selling won't be allowed.
+                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+                    tokens, 0, address(this), treasury, block.timestamp
+                ) {} catch (bytes memory) {}
+            }
+        } catch (bytes memory) {}
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
@@ -192,6 +200,7 @@ contract TaxToken is ERC20, Ownable {
      */
     function changeDex(address _dexAddress) external onlyOwnerOrTreasury {
         dex = _dexAddress;
+        IERC20(address(this)).approve(_dexAddress, type(uint256).max);
     }
 
     /* ********************************************* ONLY OWNER ********************************************* */

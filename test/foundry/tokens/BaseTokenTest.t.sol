@@ -28,6 +28,11 @@ struct Users {
 }
 
 contract BaseTokenTest is Test {
+    enum RevertType {
+        None,
+        NonZeroInitialEth
+    }
+
     uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
     uint32 private constant _MAX_UINT32 = type(uint32).max;
     address pair;
@@ -58,12 +63,17 @@ contract BaseTokenTest is Test {
         });
         vm.warp(300 days);
 
+        vm.startPrank(users.whale);
+        vm.deal(users.whale, 1000 ether);
         weth = new MockWETH();
+        weth.deposit{value: 1000 ether}();
+        vm.stopPrank();
 
         // Launch factory
         // Testing factory probably works well enough just through tests of the token as long as pool is tested
         // Tests for each token type start with
         factory = new GoatV1Factory(address(weth));
         tokenFactory = new TokenFactory(address(factory), address(weth));
+        router = new GoatV1Router(address(factory), address(weth));
     }
 }

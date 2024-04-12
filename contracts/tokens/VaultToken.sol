@@ -57,15 +57,20 @@ contract VaultToken is TaxToken {
         path[1] = _WETH;
 
         tokens = _balances[address(this)];
-        ethValue = IRouter(dex).getAmountsOut(tokens, path, _WETH);
-        if (ethValue > _minSell) {
-            // How do we make impact minor here...
-            try IRouter(dex).swapExactTokensForEth(tokens, 0, path, address(this), block.timestamp) {
-                uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
-                vaultEth += ethForVault;
-                payable(treasury).transfer(ethValue - ethForVault);
-            } catch (bytes memory) {}
-        }
+
+        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
+            ethValue = amounts[1];
+            if (ethValue > _minSell) {
+                // How do we make impact minor here...
+                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+                    tokens, 0, address(this), treasury, block.timestamp
+                ) {
+                    uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
+                    vaultEth += ethForVault;
+                    payable(treasury).transfer(ethValue - ethForVault);
+                } catch (bytes memory) {}
+            }
+        } catch (bytes memory) {}
     }
 
     /**
