@@ -1603,7 +1603,7 @@ contract GoatV1RouterTest is BaseTest {
         path[1] = address(token);
         uint256[] memory output = router.getAmountsOut(uint256(5e18), path);
 
-        assertEq(output[0], expectedAmountOut);
+        assertEq(output[1], expectedAmountOut);
     }
 
     function testGetAmountsOutPresaleForTokenIn() public {
@@ -1627,7 +1627,7 @@ contract GoatV1RouterTest is BaseTest {
         path[1] = address(weth);
         uint256[] memory output = router.getAmountsOut(uint256(100e18), path);
 
-        assertEq(output[0], expectedAmountOut);
+        assertEq(output[1], expectedAmountOut);
     }
 
     function testGetAmountsOutAmmForWethIn() public {
@@ -1641,7 +1641,7 @@ contract GoatV1RouterTest is BaseTest {
         path[1] = address(token);
         uint256[] memory output = router.getAmountsOut(uint256(5e18), path);
 
-        assertEq(output[0], expectedAmountOut);
+        assertEq(output[1], expectedAmountOut);
     }
 
     function testGetAmountsOutAmmForTokenIn() public {
@@ -1655,7 +1655,7 @@ contract GoatV1RouterTest is BaseTest {
         path[1] = address(weth);
         uint256[] memory output = router.getAmountsOut(uint256(100e18), path);
 
-        assertEq(output[0], expectedAmountOut);
+        assertEq(output[1], expectedAmountOut);
     }
 
     function testGetAmountsInPresaleForWethOut() public {
