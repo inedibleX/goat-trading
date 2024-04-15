@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import "./ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+import "./ERC20.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 interface IRouter {
     function getAmountsOut(uint256 amountIn, address[] memory path) external returns (uint256[] memory);
@@ -45,10 +47,6 @@ contract TaxToken is ERC20, Ownable {
 
     // Used in some iterations such as TaxShare in a situation where a dex should be excluded from activity.
     mapping(address => bool) public taxed;
-
-    /* ********************************************* ERRORS ********************************************* */
-    error TaxTooHigh();
-    error OnlyOwnerOrTreasury();
 
     /* ********************************************* CONSTRUCTOR ********************************************* */
     constructor(string memory _name, string memory _symbol, uint256 _initialSupply, address _weth)
@@ -171,7 +169,7 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     modifier onlyOwnerOrTreasury() {
-        if (msg.sender != treasury && msg.sender != owner()) revert OnlyOwnerOrTreasury();
+        if (msg.sender != treasury && msg.sender != owner()) revert TokenErrors.OnlyOwnerOrTreasury();
         _;
     }
 
@@ -215,7 +213,7 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external onlyOwner {
-        if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TaxTooHigh();
+        if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TokenErrors.TaxTooHigh();
         buyTax[_dex] = _buyTax;
         sellTax[_dex] = _sellTax;
 

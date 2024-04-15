@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "./TaxToken.sol";
+import {TaxToken, TokenErrors, IRouter} from "./TaxToken.sol";
+import {IWETH} from "./../interfaces/IWETH.sol";
 
 /**
  * @title Vault Token
@@ -25,6 +26,10 @@ contract VaultToken is TaxToken {
         address _weth
     ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         vaultPercent = _vaultPercent;
+    }
+
+    receive() external payable {
+        assert(msg.sender == _WETH); // only accept ETH via fallback from the WETH contract
     }
 
     /**
@@ -52,19 +57,26 @@ contract VaultToken is TaxToken {
      *
      */
     function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
+        address token = address(this);
         address[] memory path = new address[](2);
-        path[0] = address(this);
+        path[0] = token;
         path[1] = _WETH;
 
-        tokens = _balances[address(this)];
+        tokens = _balances[token];
+
+        // return if dex is not set
+        if (dex == address(0)) return (0, 0);
 
         try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
             ethValue = amounts[1];
             if (ethValue > _minSell) {
                 // How do we make impact minor here...
                 try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, address(this), treasury, block.timestamp
+                    tokens, 0, token, token, block.timestamp
                 ) {
+                    ethValue = IWETH(_WETH).balanceOf(address(this));
+                    IWETH(_WETH).withdraw(ethValue);
+
                     uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
                     vaultEth += ethForVault;
                     payable(treasury).transfer(ethValue - ethForVault);
@@ -89,7 +101,7 @@ contract VaultToken is TaxToken {
      *
      */
     function changeVaultPercent(uint256 _newVaultPercent) external onlyOwnerOrTreasury {
-        require(_newVaultPercent <= _DIVISOR, "New vault percent too high.");
+        if (_newVaultPercent > _DIVISOR) revert TokenErrors.NewVaultPercentTooHigh();
         vaultPercent = _newVaultPercent;
     }
 }

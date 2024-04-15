@@ -16,6 +16,8 @@ import {DividendToken} from "../../../contracts/tokens/DividendToken.sol";
 import {VaultToken} from "../../../contracts/tokens/VaultToken.sol";
 import {LotteryToken} from "../../../contracts/tokens/LotteryToken.sol";
 import {TokenFactory} from "../../../contracts/tokens/TokenFactory.sol";
+import {TokenFactory2} from "../../../contracts/tokens/TokenFactory2.sol";
+import {TokenFactory3} from "../../../contracts/tokens/TokenFactory3.sol";
 import {LotteryTokenMaster} from "../../../contracts/tokens/LotteryTokenMaster.sol";
 
 struct Users {
@@ -30,13 +32,17 @@ struct Users {
 contract BaseTokenTest is Test {
     enum RevertType {
         None,
-        NonZeroInitialEth
+        NonZeroInitialEth,
+        InitialBurnPercent
     }
 
     uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
     uint32 private constant _MAX_UINT32 = type(uint32).max;
     address pair;
+
     TokenFactory tokenFactory;
+    TokenFactory2 tokenFactory2;
+    TokenFactory3 tokenFactory3;
     GoatV1Factory factory;
     GoatV1Router router;
     MockERC20 goat;
@@ -74,6 +80,8 @@ contract BaseTokenTest is Test {
         // Tests for each token type start with
         factory = new GoatV1Factory(address(weth));
         tokenFactory = new TokenFactory(address(factory), address(weth));
+        tokenFactory2 = new TokenFactory2(address(factory), address(weth));
+        tokenFactory3 = new TokenFactory3(address(factory), address(weth));
         router = new GoatV1Router(address(factory), address(weth));
     }
 }

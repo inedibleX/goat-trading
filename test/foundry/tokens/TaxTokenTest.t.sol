@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {BaseTokenTest, TaxToken, TokenFactory, console2} from "./BaseTokenTest.t.sol";
 
@@ -9,6 +10,7 @@ import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
+import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -23,6 +25,8 @@ contract TaxTokenTest is BaseTokenTest {
 
     uint256 private totalSupply = 1e21;
     uint256 private bootstrapTokenAmount;
+    string private constant tokenName = "Tax Token";
+    string private constant tokenSymbol = "TT1";
 
     function createTokenAndAddLiquidity(GoatTypes.InitParams memory initParams, RevertType revertType) public {
         bootstrapTokenAmount = GoatLibrary.getActualBootstrapTokenAmount(
@@ -33,14 +37,32 @@ contract TaxTokenTest is BaseTokenTest {
             vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory.createToken(
-            "TaxToken", "TT1", totalSupply, 100, 100, users.owner, TokenType.TAX, 1000, initParams
+            tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.TAX, 1000, initParams
         );
 
         plainTax = TaxToken(token);
         pair = pool;
     }
 
-    function testCreateTokenSuccess() public {
+    function testTaxTokenInitialize() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.initialEth = 0;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(plainTax.owner(), users.owner);
+        assertEq(plainTax.balanceOf(users.owner), totalSupply - bootstrapTokenAmount);
+        assertEq(plainTax.balanceOf(pair), bootstrapTokenAmount);
+
+        assertEq(plainTax.totalSupply(), totalSupply);
+        assertEq(plainTax.name(), tokenName);
+        assertEq(plainTax.symbol(), tokenSymbol);
+    }
+
+    function testCreatePlainTaxTokenSuccess() public {
         GoatTypes.InitParams memory initParams;
         initParams.bootstrapEth = 10e18;
         initParams.initialEth = 0;
@@ -53,7 +75,7 @@ contract TaxTokenTest is BaseTokenTest {
         uint256 ownerBalance = plainTax.balanceOf(users.owner);
 
         uint256 ownerLpBalance = IERC20(pair).balanceOf(users.owner);
-        uint256 expectedLpBal = 100e18 - 1000;
+        uint256 expectedLpBal = Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - 1000;
 
         assertEq(pairBalance, bootstrapTokenAmount, "Pair balance should be equal to bootstrap token amount");
         assertEq(
@@ -113,7 +135,7 @@ contract TaxTokenTest is BaseTokenTest {
         assertEq(plainTax.treasury(), users.owner, "Treasury should be owner");
 
         vm.startPrank(users.bob);
-        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
         plainTax.transferTreasury(users.treasury);
         vm.stopPrank();
     }
@@ -148,7 +170,7 @@ contract TaxTokenTest is BaseTokenTest {
         assertEq(plainTax.minSell(), 0.1 ether, "Min sell should be 0");
 
         vm.startPrank(users.bob);
-        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
         plainTax.changeMinSell(1 ether);
         vm.stopPrank();
     }
@@ -183,7 +205,7 @@ contract TaxTokenTest is BaseTokenTest {
         assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
 
         vm.startPrank(users.bob);
-        vm.expectRevert(TaxToken.OnlyOwnerOrTreasury.selector);
+        vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
         plainTax.changeDex(users.whale);
         vm.stopPrank();
     }

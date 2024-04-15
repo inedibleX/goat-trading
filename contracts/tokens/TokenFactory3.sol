@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {DividendToken} from "./DividendToken.sol";
 import {VaultToken} from "./VaultToken.sol";
+import {TokenType} from "./TokenFactory.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
@@ -23,16 +24,6 @@ interface IGoatFactory {
 
 interface IGoatPair {
     function mint(address to) external returns (uint256 liquidity);
-}
-
-enum TokenType {
-    PLAIN,
-    DEMURRAGE,
-    TAX,
-    TAXSHARE,
-    TAXBURN,
-    DIVIDEND,
-    VAULT
 }
 
 /**

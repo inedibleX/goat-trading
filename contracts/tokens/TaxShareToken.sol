@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "./TaxToken.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 /**
  * @title TaxShare Token
@@ -17,8 +18,6 @@ contract TaxShareToken is TaxToken {
 
     // Amount of taxes to be shared with users. 100 == 1%.
     uint256 public sharePercent;
-
-    error NewVaultPercentTooHigh();
 
     constructor(
         string memory _name,
@@ -43,7 +42,10 @@ contract TaxShareToken is TaxToken {
      */
     function balanceOf(address user) public view override returns (uint256 balance) {
         balance = _balances[user];
-        balance += _earned(user);
+        // taxed addresses, burned addresses and tax fees will not accrue rewards.
+        if (user != address(0) && user != address(this) && !taxed[user]) {
+            balance += _earned(user);
+        }
     }
 
     /* ********************************************* INTERNAL ********************************************* */
@@ -135,6 +137,32 @@ contract TaxShareToken is TaxToken {
         rewardPerTokenStored += reward / (_totalSupply / 1e18);
         _balances[address(this)] += _amount - reward;
     }
+    /**
+     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
+     *
+     */
+
+    function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
+        address[] memory path = new address[](2);
+        path[0] = address(this);
+        path[1] = _WETH;
+
+        tokens = balanceOf(address(this));
+
+        // return if dex is not set
+        if (dex == address(0)) return (0, 0);
+        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
+            ethValue = amounts[1];
+            if (ethValue > _minSell) {
+                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
+                tokens = tokens * _minSell / ethValue;
+                // Try/catch because during bootstrapping selling won't be allowed.
+                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+                    tokens, 0, address(this), treasury, block.timestamp
+                ) {} catch (bytes memory) {}
+            }
+        } catch (bytes memory) {}
+    }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
     /**
@@ -143,7 +171,7 @@ contract TaxShareToken is TaxToken {
      *
      */
     function changeSharePercent(uint256 _newSharePercent) external onlyOwnerOrTreasury {
-        if (_newSharePercent > _DIVISOR) revert NewVaultPercentTooHigh();
+        if (_newSharePercent > _DIVISOR) revert TokenErrors.NewVaultPercentTooHigh();
         sharePercent = _newSharePercent;
     }
 }

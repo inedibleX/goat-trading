@@ -3,7 +3,12 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 
-import {BaseTokenTest} from "./BaseTokenTest.t.sol";
+import {BaseTokenTest, DemurrageToken, TokenFactory} from "./BaseTokenTest.t.sol";
+
+import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
+
+import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
+import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 
 // Demurrage:
 // 1. Tokens decay at the correct rate
@@ -22,8 +27,55 @@ import {BaseTokenTest} from "./BaseTokenTest.t.sol";
 // with dividends, lottery, vaults
 
 contract DemurrageTokenTest is BaseTokenTest {
+    uint256 private totalSupply = 1e21;
+    uint256 private bootstrapTokenAmount;
+    string private constant tokenName = "Demurrage Token";
+    string private constant tokenSymbol = "DMT";
+
+    function createTokenAndAddLiquidity(GoatTypes.InitParams memory initParams, RevertType revertType) public {
+        bootstrapTokenAmount = GoatLibrary.getActualBootstrapTokenAmount(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+
+        if (revertType == RevertType.NonZeroInitialEth) {
+            vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
+        }
+        (address token, address pool) = tokenFactory.createToken(
+            tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.DEMURRAGE, 1000, initParams
+        );
+
+        demurrage = DemurrageToken(token);
+        pair = pool;
+    }
     // Transfers are the only specific functionality of demurrage so we don't need other tests.
+
+    function testDemurrageInitialize() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.initialEth = 0;
+        initParams.bootstrapEth = 10e18;
+        initParams.virtualEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        assertEq(demurrage.owner(), users.owner);
+        assertEq(demurrage.balanceOf(users.owner), totalSupply - bootstrapTokenAmount);
+        assertEq(demurrage.balanceOf(pair), bootstrapTokenAmount);
+
+        assertEq(demurrage.totalSupply(), totalSupply);
+        assertEq(demurrage.name(), tokenName);
+        assertEq(demurrage.symbol(), tokenSymbol);
+    }
+
     function testDemurrage() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
         // Make sure token amounts are updated correctly when transferred (whether that's altered or unaltered).
         _testDemurrageTransfers();
         _testDemurragePrivileged();

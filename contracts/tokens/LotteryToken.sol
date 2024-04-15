@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "./TaxToken.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 interface ILotteryMaster {
     function upkeep(uint256 loops) external;
@@ -118,7 +119,7 @@ contract LotteryToken is TaxToken {
      *
      */
     function payWinner(address _user, uint256 _entryAmount) external {
-        require(msg.sender == lotteryMaster, "Only LotteryMaster may pay winner.");
+        if (msg.sender != lotteryMaster) revert TokenErrors.OnlyLotteryMaster();
 
         uint256 maxWin = _entryAmount * maxWinMultiplier;
         uint256 winnings = maxWin < lotteryPot ? maxWin : lotteryPot;
@@ -135,7 +136,7 @@ contract LotteryToken is TaxToken {
      *
      */
     function changePotPercent(uint256 _newPotPercent) external onlyOwnerOrTreasury {
-        require(_newPotPercent <= _DIVISOR, "New vault percent too high.");
+        if (_newPotPercent > _DIVISOR) revert TokenErrors.NewPotPercentTooHigh();
         potPercent = _newPotPercent;
     }
 }

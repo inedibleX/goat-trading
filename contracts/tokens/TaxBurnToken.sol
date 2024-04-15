@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "./TaxToken.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 /**
  * @title TaxBurn Token
@@ -16,6 +17,9 @@ contract TaxBurnToken is TaxToken {
     constructor(string memory _name, string memory _symbol, uint256 _initialSupply, uint256 _burnPercent, address _weth)
         TaxToken(_name, _symbol, _initialSupply, _weth)
     {
+        if (_burnPercent > _DIVISOR) {
+            revert TokenErrors.BurnPercentTooHigh();
+        }
         burnPercent = _burnPercent;
     }
 
@@ -41,7 +45,9 @@ contract TaxBurnToken is TaxToken {
      *
      */
     function changeBurnPercent(uint256 _newBurnPercent) external onlyOwnerOrTreasury {
-        require(_newBurnPercent <= _DIVISOR, "New vault percent too high.");
+        if (_newBurnPercent > _DIVISOR) {
+            revert TokenErrors.NewBurnPercentTooHigh();
+        }
         burnPercent = _newBurnPercent;
     }
 }

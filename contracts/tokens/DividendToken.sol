@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import "./TaxToken.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
+import {TaxToken} from "./TaxToken.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 /**
  * @title Dividend Token
  * @author Robert M.C. Forster
@@ -12,6 +13,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  *         Also includes the ability for the owner to take taxes if desired.
  *
  */
+
 contract DividendToken is TaxToken, ReentrancyGuard {
     // The address that's allowed to give rewards.
     address public rewarder;
@@ -156,7 +158,9 @@ contract DividendToken is TaxToken, ReentrancyGuard {
      *
      */
     function addDividend(uint256 _dripTimeInSeconds) external payable {
-        require(msg.sender == rewarder, "Only the team may add rewards.");
+        if (msg.sender != rewarder) {
+            revert TokenErrors.OnlyTeam();
+        }
 
         uint256 reward = msg.value;
         if (block.timestamp >= periodFinish) {
@@ -169,7 +173,9 @@ contract DividendToken is TaxToken, ReentrancyGuard {
 
         // Full Ether balance.
         uint256 balance = address(this).balance;
-        require(rewardRate <= balance / _dripTimeInSeconds, "Provided reward too high");
+        if (balance / _dripTimeInSeconds > rewardRate) {
+            revert TokenErrors.ProvidedRewardsTooHigh();
+        }
 
         lastUpdateTime = block.timestamp;
         periodFinish = block.timestamp + _dripTimeInSeconds;
@@ -182,7 +188,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
      *
      */
     function transferRewarder(address _newRewarder) external {
-        require(msg.sender == owner() || msg.sender == rewarder, "Only the owner or rewarder may call this.");
+        if (msg.sender != owner() || msg.sender != rewarder) revert TokenErrors.OnlyBeneficiaryOrRewarder();
         rewarder = _newRewarder;
     }
 

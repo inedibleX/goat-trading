@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import "./ERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+import "./ERC20.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 /**
  * @title Demurrage Token: A token that decays over time if it's being held in unproductive manners.
  * @author Robert M.C. Forster
@@ -34,6 +35,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  *      maintains a consistent total supply.
  *
  */
+
 contract DemurrageToken is ERC20, Ownable {
     /**
      * @dev The difficult part of demurrage tokens is that if you're charging a flat yearly percent,
@@ -85,8 +87,6 @@ contract DemurrageToken is ERC20, Ownable {
     mapping(address => uint256) private _lastUserTokensPaid;
     mapping(address => uint256) private _lastUserDecaying;
 
-    error OnlyBeneficiaryOrOwner();
-
     /**
      * @dev Read above for an explanation of _decayPercentPerSecond.
      * @param _name Name for the token.
@@ -99,7 +99,7 @@ contract DemurrageToken is ERC20, Ownable {
         ERC20(_name, _symbol)
     {
         _mint(msg.sender, _initialSupply);
-        // TODO: is thre a need to check _decayPercentPor second?
+        // TODO: is thre a need to check _decayPercentPer second?
 
         decayPercentPerSecond = _decayPercentPerSecond;
         safeHavens[beneficiary] = true;
@@ -293,7 +293,7 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function transferBeneficiary(address _newBeneficiary) external {
         if (msg.sender != beneficiary && msg.sender != owner()) {
-            revert OnlyBeneficiaryOrOwner();
+            revert TokenErrors.OnlyBeneficiaryOrOwner();
         }
 
         _updateGlobalBalance();
