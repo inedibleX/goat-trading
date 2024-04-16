@@ -1044,8 +1044,11 @@ contract GoatV1RouterTest is BaseTest {
     function testSwapEthToTokenSuccess() public {
         _addLiquidityWithoutWeth();
         vm.deal(swapper, 5e18); // send some eth to swapper
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = address(token);
         vm.startPrank(swapper);
-        uint256 amountOut = router.swapExactETHForTokens{value: 5e18}(0, address(token), swapper, block.timestamp);
+        uint256 amountOut = router.swapExactETHForTokens{value: 5e18}(0, path, swapper, block.timestamp);
         vm.stopPrank();
         uint256 fees = (5e18 * 99) / 10000; // 1% fee
         //calculate amt out after deducting fee
@@ -1060,8 +1063,11 @@ contract GoatV1RouterTest is BaseTest {
         vm.deal(swapper, 5e18); // send some eth to swapper
         vm.startPrank(swapper);
         // More value,less amountIn
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = address(token);
         vm.expectRevert(GoatErrors.InsufficientInputAmount.selector);
-        uint256 amountOut = router.swapExactETHForTokens{value: 0}(0, address(token), swapper, block.timestamp);
+        uint256 amountOut = router.swapExactETHForTokens{value: 0}(0, path, swapper, block.timestamp);
         vm.stopPrank();
     }
 
@@ -1525,9 +1531,12 @@ contract GoatV1RouterTest is BaseTest {
         _addLiquidityEthAndConvertToAmm();
         vm.deal(swapper, 5e18); // send some eth to swapper
         vm.startPrank(swapper);
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = address(token);
         router.swapETHForExactTokensSupportingFeeOnTransferTokens{value: 5e18}(
             0, // no slippage protection for now
-            address(token),
+            path,
             swapper,
             block.timestamp
         );

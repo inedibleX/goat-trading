@@ -6,6 +6,7 @@ contract GoatErrors {
     error BurnLimitExceeded();
     error CannnotPairWithBaseAsset();
     error EthTransferFailed();
+    error ExcessiveInputAmount();
     error Expired();
     error FailedToSendEther();
     error Forbidden();
