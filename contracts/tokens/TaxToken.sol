@@ -35,7 +35,7 @@ contract TaxToken is ERC20, Ownable {
     uint256 internal constant _TAX_MAX = 1_000;
     address internal immutable _WETH;
 
-    uint256 _minSell;
+    uint256 internal _minSell;
 
     // Team address that will receive tax profits.
     address public treasury;

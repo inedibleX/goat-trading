@@ -18,7 +18,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
     // The address that's allowed to give rewards.
     address public rewarder;
 
-    uint256 public rewardRate = 0;
+    uint256 public rewardRate;
     uint256 public lastUpdateTime;
     uint256 public rewardPerTokenStored;
     uint256 public periodFinish;
@@ -137,7 +137,8 @@ contract DividendToken is TaxToken, ReentrancyGuard {
         if (_totalSupply == 0) {
             return rewardPerTokenStored;
         }
-        return rewardPerTokenStored + (_lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18 / _totalSupply;
+        return
+            rewardPerTokenStored + (((_lastTimeRewardApplicable() - lastUpdateTime) * rewardRate * 1e18) / _totalSupply);
     }
 
     /**
@@ -163,6 +164,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
         }
 
         uint256 reward = msg.value;
+        // small precision loss in reward rate is accepted as it is not scaled.
         if (block.timestamp >= periodFinish) {
             rewardRate = reward / _dripTimeInSeconds;
         } else {
@@ -173,7 +175,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
 
         // Full Ether balance.
         uint256 balance = address(this).balance;
-        if (balance / _dripTimeInSeconds > rewardRate) {
+        if (balance / _dripTimeInSeconds < rewardRate) {
             revert TokenErrors.ProvidedRewardsTooHigh();
         }
 
@@ -188,7 +190,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
      *
      */
     function transferRewarder(address _newRewarder) external {
-        if (msg.sender != owner() || msg.sender != rewarder) revert TokenErrors.OnlyBeneficiaryOrRewarder();
+        if (msg.sender != owner() && msg.sender != rewarder) revert TokenErrors.OnlyBeneficiaryOrRewarder();
         rewarder = _newRewarder;
     }
 

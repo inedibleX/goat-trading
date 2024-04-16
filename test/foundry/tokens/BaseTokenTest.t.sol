@@ -27,6 +27,7 @@ struct Users {
     address treasury;
     address owner;
     address dex;
+    address rewarder;
 }
 
 contract BaseTokenTest is Test {
@@ -65,7 +66,8 @@ contract BaseTokenTest is Test {
             bob: makeAddr("bob"),
             treasury: makeAddr("treasury"),
             owner: makeAddr("owner"),
-            dex: makeAddr("dex")
+            dex: makeAddr("dex"),
+            rewarder: makeAddr("rewarder")
         });
         vm.warp(300 days);
 
