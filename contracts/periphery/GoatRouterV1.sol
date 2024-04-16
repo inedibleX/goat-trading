@@ -227,20 +227,15 @@ contract GoatV1Router is ReentrancyGuard {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256[] memory amounts) {
-        if (path.length != 2) {
-            revert GoatErrors.InvalidPath();
-        }
         amounts = getAmountsOut(amountIn, path);
         if (amounts[1] < amountOutMin) {
             revert GoatErrors.InsufficientOutputAmount();
         }
 
         if (path[0] == WETH) {
-            swapExactWethForTokens(amounts[1], amountOutMin, path[1], to, deadline);
-        } else if (path[1] == WETH) {
-            swapExactTokensForWeth(amounts[1], amountOutMin, path[0], to, deadline);
+            swapExactWethForTokens(amountIn, amounts[1], path[1], to, deadline);
         } else {
-            revert GoatErrors.InvalidPath();
+            swapExactTokensForWeth(amountIn, amounts[1], path[0], to, deadline);
         }
     }
 
@@ -251,21 +246,15 @@ contract GoatV1Router is ReentrancyGuard {
         address to,
         uint256 deadline
     ) external ensure(deadline) returns (uint256[] memory amounts) {
-        if (path.length != 2) {
-            revert GoatErrors.InvalidPath();
-        }
-
         amounts = getAmountsIn(amountOut, path);
         if (amounts[0] > amountInMax) {
             revert GoatErrors.ExcessiveInputAmount();
         }
 
         if (path[0] == WETH) {
-            swapExactTokensForWeth(amounts[0], amountOut, path[1], to, deadline);
-        } else if (path[1] == WETH) {
-            swapExactWethForTokens(amounts[0], amountOut, path[0], to, deadline);
+            swapExactWethForTokens(amounts[0], amountOut, path[1], to, deadline);
         } else {
-            revert GoatErrors.InvalidPath();
+            swapExactTokensForWeth(amounts[0], amountOut, path[0], to, deadline);
         }
     }
 
