@@ -16,6 +16,7 @@ interface IToken {
     function transferBeneficiary(address beneficiary) external;
     function transferOwnership(address owner) external;
     function transferTreasury(address treasury) external;
+    function changeSafeHaven(address _safeHaven, bool _toAdd) external;
 }
 
 interface IGoatFactory {
@@ -112,6 +113,7 @@ contract TokenFactory {
         // Set taxes for dex, transfer all ownership to owner.
         if (_type == TokenType.DEMURRAGE) {
             token.transferBeneficiary(_owner);
+            token.changeSafeHaven(pool, true);
         } else if (_type != TokenType.PLAIN) {
             token.setTaxes(pool, _buyTax, _sellTax);
             token.transferTreasury(_owner);
