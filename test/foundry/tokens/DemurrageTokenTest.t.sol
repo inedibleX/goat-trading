@@ -41,7 +41,7 @@ contract DemurrageTokenTest is BaseTokenTest {
             vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory.createToken(
-            tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.DEMURRAGE, 1000, initParams
+            tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.DEMURRAGE, 1e12, initParams
         );
 
         demurrage = DemurrageToken(token);
@@ -65,9 +65,10 @@ contract DemurrageTokenTest is BaseTokenTest {
         assertEq(demurrage.totalSupply(), totalSupply);
         assertEq(demurrage.name(), tokenName);
         assertEq(demurrage.symbol(), tokenSymbol);
+        assertEq(demurrage.safeHavens(pair), true);
     }
 
-    function testDemurrage() public {
+    function testDemurrageUpdatesOnTransfer() public {
         GoatTypes.InitParams memory initParams;
         initParams.bootstrapEth = 10e18;
         initParams.initialEth = 0;
@@ -76,20 +77,41 @@ contract DemurrageTokenTest is BaseTokenTest {
 
         createTokenAndAddLiquidity(initParams, RevertType.None);
 
-        // Make sure token amounts are updated correctly when transferred (whether that's altered or unaltered).
-        _testDemurrageTransfers();
-        _testDemurragePrivileged();
-    }
+        vm.startPrank(users.owner);
+        demurrage.changeSafeHaven(users.owner, false);
+        demurrage.transfer(users.bob, 250e18);
+        vm.stopPrank();
+        uint256 elapsed = 1 days;
+        vm.warp(block.timestamp + elapsed);
 
-    function _testDemurrageTransfers() private {
-        // 1. Test transfer from one to another normally and make sure updates are made correctly
-        // 2. Test transfer above with safe havens and make sure the same
-        // 2. Make sure transfer that is more than the balance completely fails
-        // 3. Make sure transfer that is more than the balance only after decay succeeds but only gives balance amount
-    }
+        vm.startPrank(users.bob);
+        demurrage.transfer(users.alice, 100e18);
+        vm.stopPrank();
+        uint256 expectedCumuDecay = elapsed * 250e18;
+        uint256 expectedCumuPaid = 250e18 * 1e12 * elapsed / 1e18;
 
-    function _testDemurragePrivileged() private {
-        // 1. Test owner and beneficiary can change what they should change
-        // 2. Make sure all variables are change correctly when things are adjusted (such as decay implemented if something is becoming safe haven)
+        assertEq(demurrage.lastGlobalUpdate(), block.timestamp);
+        assertEq(demurrage.cumulativeDecaying(), expectedCumuDecay);
+
+        assertEq(demurrage.lastUserUpdate(users.bob), block.timestamp);
+        assertEq(demurrage.lastUserUpdate(users.alice), block.timestamp);
+
+        assertEq(demurrage.lastUserDecaying(users.bob), expectedCumuDecay);
+        assertEq(demurrage.lastUserDecaying(users.bob), expectedCumuDecay);
+
+        console2.log("expectedCumuPaid: %e", expectedCumuPaid);
+
+        assertEq(demurrage.cumulativeTokensPaid(), expectedCumuPaid);
+        assertEq(demurrage.lastUserTokensPaid(users.bob), demurrage.cumulativeTokensPaid());
+        assertEq(demurrage.lastUserTokensPaid(users.alice), demurrage.cumulativeTokensPaid());
+
+        uint256 balanceOfBob = demurrage.balanceOf(users.bob);
+        uint256 balanceOfAlice = demurrage.balanceOf(users.alice);
+        uint256 balanceOfBeneficiary = demurrage.balanceOf(demurrage.beneficiary());
+
+        console2.log("balanceOfBob: %e", balanceOfBob);
+        console2.log("balanceOfAlice: %e", balanceOfAlice);
+
+        console2.log("balance beneficiary: %e", balanceOfBeneficiary);
     }
 }

@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ERC20.sol";
 import {TokenErrors} from "./TokenErrors.sol";
+import {console2} from "forge-std/Test.sol";
 /**
  * @title Demurrage Token: A token that decays over time if it's being held in unproductive manners.
  * @author Robert M.C. Forster
@@ -56,7 +57,7 @@ contract DemurrageToken is ERC20, Ownable {
      *      maintains a consistent total supply.
      *
      */
-    uint256 private constant _DIVISOR = 10_000;
+    uint256 private constant _DIVISOR = 1e18;
     /**
      * @notice Address that will gain the decayed tokens.
      *
@@ -99,10 +100,9 @@ contract DemurrageToken is ERC20, Ownable {
         ERC20(_name, _symbol)
     {
         _mint(msg.sender, _initialSupply);
-        // TODO: is thre a need to check _decayPercentPer second?
-
         decayPercentPerSecond = _decayPercentPerSecond;
         safeHavens[beneficiary] = true;
+        _lastGlobalUpdate = block.timestamp;
     }
 
     /* ********************************************* PUBLIC ********************************************* */
@@ -115,6 +115,9 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function balanceOf(address user) public view override returns (uint256 balance) {
         if (safeHavens[user]) return _balances[user];
+        if (user == beneficiary) {
+            console2.log("********************************** beneficiary balance: %e", _balances[beneficiary]);
+        }
 
         uint256 tokensOwed = _calculateDecayedTokens(user);
         uint256 prevBalance = _balances[user];
@@ -147,7 +150,7 @@ contract DemurrageToken is ERC20, Ownable {
         globalTokensOwed = globalTokensOwed > decayingTokens ? decayingTokens : globalTokensOwed;
 
         _cumulativeTokensPaid += globalTokensOwed;
-        _cumulativeDecaying += decayingTokens * (block.timestamp - _lastGlobalUpdate);
+        _cumulativeDecaying += decayingTokens * timeElapsed;
         _lastGlobalUpdate = block.timestamp;
 
         // Add balance to beneficiary.
@@ -157,7 +160,9 @@ contract DemurrageToken is ERC20, Ownable {
          * For the first version of these tokens we're prioritizing safety over efficiency.
          *
          */
+        console2.log("global Tokens owed: %e", globalTokensOwed);
         _balances[beneficiary] += globalTokensOwed;
+        console2.log("beneficiary balance: %e", _balances[beneficiary]);
     }
 
     /**
@@ -181,8 +186,10 @@ contract DemurrageToken is ERC20, Ownable {
     function _calculateDecayedTokens(address _user) internal view returns (uint256 tokensOwed) {
         uint256 timeElapsed = block.timestamp - _lastUserUpdate[_user];
         if (timeElapsed != 0) {
-            uint256 avgUnproductive = _cumulativeDecaying - _lastUserDecaying[_user] / timeElapsed;
+            uint256 avgUnproductive = (_cumulativeDecaying - _lastUserDecaying[_user]) / timeElapsed;
+            console2.log("avgUnproductive: %e", avgUnproductive);
             uint256 avgTokensPaid = _cumulativeTokensPaid - _lastUserTokensPaid[_user] / timeElapsed;
+            console2.log("avgTokensPaid: %e", avgTokensPaid);
 
             // These 2 averages give us the average percent paid and can charge our balance based on that.
             if (avgUnproductive != 0) {
@@ -304,5 +311,30 @@ contract DemurrageToken is ERC20, Ownable {
         safeHavens[_newBeneficiary] = true;
 
         beneficiary = _newBeneficiary;
+    }
+    // VIEW FUNCTIONS FOR TESTS
+
+    function lastGlobalUpdate() external view returns (uint256) {
+        return _lastGlobalUpdate;
+    }
+
+    function cumulativeTokensPaid() external view returns (uint256) {
+        return _cumulativeTokensPaid;
+    }
+
+    function cumulativeDecaying() external view returns (uint256) {
+        return _cumulativeDecaying;
+    }
+
+    function lastUserUpdate(address _user) external view returns (uint256) {
+        return _lastUserUpdate[_user];
+    }
+
+    function lastUserTokensPaid(address _user) external view returns (uint256) {
+        return _lastUserTokensPaid[_user];
+    }
+
+    function lastUserDecaying(address _user) external view returns (uint256) {
+        return _lastUserDecaying[_user];
     }
 }
