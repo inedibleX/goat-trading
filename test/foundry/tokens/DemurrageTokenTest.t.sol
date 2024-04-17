@@ -80,12 +80,29 @@ contract DemurrageTokenTest is BaseTokenTest {
         vm.startPrank(users.owner);
         demurrage.transfer(users.bob, 250e18);
         vm.stopPrank();
+        console2.log("********************** Bob bal: ", demurrage.balanceOf(users.bob));
         uint256 elapsed = 1 days;
         vm.warp(block.timestamp + elapsed);
+        console2.log(
+            "***************** Bob bal after 1 days by just forwarding timestamp: ", demurrage.balanceOf(users.bob)
+        );
 
+        console2.log("\n******************** Transfer 100e18 tokens from Bob to Alice *********************");
         vm.startPrank(users.bob);
         demurrage.transfer(users.alice, 100e18);
         vm.stopPrank();
+
+        console2.log("\n********************** Balance Check of bob and alice after transfer *********************");
+
+        uint256 balanceOfBob = demurrage.balanceOf(users.bob);
+        uint256 balanceOfAlice = demurrage.balanceOf(users.alice);
+        uint256 balanceOfBeneficiary = demurrage.balanceOf(demurrage.beneficiary());
+
+        console2.log("balanceOfBob: %e", balanceOfBob);
+        console2.log("balanceOfAlice: %e", balanceOfAlice);
+
+        console2.log("balance beneficiary: %e \n", balanceOfBeneficiary);
+
         uint256 expectedCumuDecay = elapsed * 250e18;
         uint256 expectedCumuPaid = 250e18 * 1e12 * elapsed / 1e18;
 
@@ -98,15 +115,16 @@ contract DemurrageTokenTest is BaseTokenTest {
         assertEq(demurrage.lastUserDecaying(users.bob), expectedCumuDecay);
         assertEq(demurrage.lastUserDecaying(users.bob), expectedCumuDecay);
 
-        console2.log("expectedCumuPaid: %e", expectedCumuPaid);
-
         assertEq(demurrage.cumulativeTokensPaid(), expectedCumuPaid);
         assertEq(demurrage.lastUserTokensPaid(users.bob), demurrage.cumulativeTokensPaid());
         assertEq(demurrage.lastUserTokensPaid(users.alice), demurrage.cumulativeTokensPaid());
 
-        uint256 balanceOfBob = demurrage.balanceOf(users.bob);
-        uint256 balanceOfAlice = demurrage.balanceOf(users.alice);
-        uint256 balanceOfBeneficiary = demurrage.balanceOf(demurrage.beneficiary());
+        console2.log("\n********************** Fast forward by 1 day *********************");
+        vm.warp(block.timestamp + elapsed);
+
+        balanceOfBob = demurrage.balanceOf(users.bob);
+        balanceOfAlice = demurrage.balanceOf(users.alice);
+        balanceOfBeneficiary = demurrage.balanceOf(demurrage.beneficiary());
 
         console2.log("balanceOfBob: %e", balanceOfBob);
         console2.log("balanceOfAlice: %e", balanceOfAlice);

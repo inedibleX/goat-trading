@@ -115,9 +115,6 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function balanceOf(address user) public view override returns (uint256 balance) {
         if (safeHavens[user]) return _balances[user];
-        if (user == beneficiary) {
-            console2.log("********************************** beneficiary balance: %e", _balances[beneficiary]);
-        }
 
         uint256 tokensOwed = _calculateDecayedTokens(user);
         uint256 prevBalance = _balances[user];
@@ -145,7 +142,7 @@ contract DemurrageToken is ERC20, Ownable {
         uint256 timeElapsed = block.timestamp - _lastGlobalUpdate;
 
         uint256 globalPercentOwed = decayPercentPerSecond * timeElapsed;
-        uint256 globalTokensOwed = decayingTokens * globalPercentOwed / _DIVISOR;
+        uint256 globalTokensOwed = (decayingTokens * globalPercentOwed) / _DIVISOR;
         // If we owe more than there are, cap it.
         globalTokensOwed = globalTokensOwed > decayingTokens ? decayingTokens : globalTokensOwed;
 
@@ -160,9 +157,7 @@ contract DemurrageToken is ERC20, Ownable {
          * For the first version of these tokens we're prioritizing safety over efficiency.
          *
          */
-        console2.log("global Tokens owed: %e", globalTokensOwed);
         _balances[beneficiary] += globalTokensOwed;
-        console2.log("beneficiary balance: %e", _balances[beneficiary]);
     }
 
     /**
@@ -177,24 +172,25 @@ contract DemurrageToken is ERC20, Ownable {
         _lastUserTokensPaid[_user] = _cumulativeTokensPaid;
         _lastUserUpdate[_user] = block.timestamp;
     }
-
     /**
      * @notice Calculate the decayed tokens of a user to update their balance/
      * @param _user The address that we're calculating recent decay for.
-     *
      */
+
     function _calculateDecayedTokens(address _user) internal view returns (uint256 tokensOwed) {
         uint256 timeElapsed = block.timestamp - _lastUserUpdate[_user];
+        uint256 globalTimeElapsed = block.timestamp - _lastGlobalUpdate;
+
         if (timeElapsed != 0) {
             uint256 avgUnproductive = (_cumulativeDecaying - _lastUserDecaying[_user]) / timeElapsed;
-            console2.log("avgUnproductive: %e", avgUnproductive);
-            uint256 avgTokensPaid = _cumulativeTokensPaid - _lastUserTokensPaid[_user] / timeElapsed;
-            console2.log("avgTokensPaid: %e", avgTokensPaid);
+            uint256 avgTokensPaid = (_cumulativeTokensPaid - _lastUserTokensPaid[_user]) / timeElapsed;
 
             // These 2 averages give us the average percent paid and can charge our balance based on that.
             if (avgUnproductive != 0) {
                 tokensOwed = _balances[_user] * avgTokensPaid / avgUnproductive;
             }
+
+            tokensOwed += ((_balances[_user] - tokensOwed) * decayPercentPerSecond * globalTimeElapsed) / _DIVISOR;
         }
     }
 
@@ -213,8 +209,8 @@ contract DemurrageToken is ERC20, Ownable {
      */
     function _update(address from, address to, uint256 value) internal override {
         // Demurrage: Update global balance variables.
-        _updateGlobalBalance();
 
+        _updateGlobalBalance();
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
             _totalSupply += value;
