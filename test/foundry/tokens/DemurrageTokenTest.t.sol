@@ -78,7 +78,6 @@ contract DemurrageTokenTest is BaseTokenTest {
         createTokenAndAddLiquidity(initParams, RevertType.None);
 
         vm.startPrank(users.owner);
-        demurrage.changeSafeHaven(users.owner, false);
         demurrage.transfer(users.bob, 250e18);
         vm.stopPrank();
         uint256 elapsed = 1 days;
