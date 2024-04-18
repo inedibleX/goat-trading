@@ -447,6 +447,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         }
 
         GoatTypes.InitialLPInfo memory initialLpInfo = _initialLPInfo;
+        if (initialLpInfo.initialWethAdded != initParams.initialEth) revert GoatErrors.IncorrectTakeoverInitialEth();
 
         GoatTypes.LocalVariables_TakeOverPool memory localVars;
         address to = msg.sender;
