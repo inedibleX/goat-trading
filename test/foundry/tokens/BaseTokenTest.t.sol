@@ -21,13 +21,14 @@ import {TokenFactory3} from "../../../contracts/tokens/TokenFactory3.sol";
 import {LotteryTokenMaster} from "../../../contracts/tokens/LotteryTokenMaster.sol";
 
 struct Users {
-    address whale;
     address alice;
+    address beneficiary;
     address bob;
-    address treasury;
-    address owner;
     address dex;
+    address owner;
     address rewarder;
+    address treasury;
+    address whale;
 }
 
 contract BaseTokenTest is Test {
@@ -41,33 +42,34 @@ contract BaseTokenTest is Test {
     uint32 private constant _MAX_UINT32 = type(uint32).max;
     address pair;
 
-    TokenFactory tokenFactory;
-    TokenFactory2 tokenFactory2;
-    TokenFactory3 tokenFactory3;
     GoatV1Factory factory;
     GoatV1Router router;
     MockERC20 goat;
     MockWETH weth;
+    TokenFactory2 tokenFactory2;
+    TokenFactory3 tokenFactory3;
+    TokenFactory tokenFactory;
     Users users;
 
-    TaxToken plainTax;
     DemurrageToken demurrage;
     DividendToken dividend;
-    LotteryTokenMaster lotteryMaster;
     LotteryToken lottery;
-    VaultToken vault;
-    TaxShareToken taxshare;
+    LotteryTokenMaster lotteryMaster;
     TaxBurnToken taxburn;
+    TaxShareToken taxshare;
+    TaxToken plainTax;
+    VaultToken vault;
 
     function setUp() public {
         users = Users({
-            whale: makeAddr("whale"),
             alice: makeAddr("alice"),
+            beneficiary: makeAddr("beneficiary"),
             bob: makeAddr("bob"),
-            treasury: makeAddr("treasury"),
-            owner: makeAddr("owner"),
             dex: makeAddr("dex"),
-            rewarder: makeAddr("rewarder")
+            owner: makeAddr("owner"),
+            rewarder: makeAddr("rewarder"),
+            treasury: makeAddr("treasury"),
+            whale: makeAddr("whale")
         });
         vm.warp(300 days);
 

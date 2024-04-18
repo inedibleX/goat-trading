@@ -16,6 +16,7 @@ interface IToken {
     function transferBeneficiary(address beneficiary) external;
     function transferOwnership(address owner) external;
     function transferTreasury(address treasury) external;
+    function blacklistAddress(address user, bool blacklisted) external;
 }
 
 interface IGoatFactory {
@@ -96,6 +97,10 @@ contract TokenFactory3 {
         IGoatPair(pool).mint(_owner);
 
         token.setTaxes(pool, _buyTax, _sellTax);
+        if (_type == TokenType.DIVIDEND) {
+            token.blacklistAddress(pool, true);
+        }
+
         token.transferTreasury(_owner);
 
         // Plain tokens do not need ownership transfer.

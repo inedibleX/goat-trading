@@ -390,7 +390,7 @@ contract GoatLibraryTest is Test {
         uint256 actualWethOut = wethAmountOut * 10000 / 9901;
         uint256 numerator = actualWethOut * (virtualToken + reserveToken);
         uint256 denominator = virtualEth + reserveEth - actualWethOut;
-        uint256 expectedAmountIn = numerator / denominator;
+        uint256 expectedAmountIn = (numerator / denominator) + 1;
 
         uint256 tokenAmountIn = GoatLibrary.getTokenAmountIn(
             wethAmountOut, reserveEth, reserveToken, virtualEth, virtualToken, vestingUntil

