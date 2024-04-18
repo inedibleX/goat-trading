@@ -12,6 +12,7 @@ contract GoatErrors {
     error Forbidden();
     error GoatPoolDoesNotExist();
     error GoatV1Forbidden();
+    error IncorrectTakeoverInitialEth();
     error IncorrectTokenAmount();
     error IncorrectWethAmount();
     error InsufficientAmountOut();
