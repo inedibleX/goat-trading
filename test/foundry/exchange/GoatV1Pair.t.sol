@@ -809,6 +809,19 @@ contract GoatExchangeTest is Test {
     }
 
     /* ------------------------------- WITHDRAW FEES------------------------------ */
+    function testWithdrawFeesRevertIfToIsPairAddress() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+        uint256 wethAmount = 10e18;
+        _mintInitialLiquidity(initParams, users.lp);
+
+        wethAmount = _swapWethForTokens(wethAmount, 100e18, users.alice, SwapRevertType.None);
+        vm.expectRevert(GoatErrors.CannotWithdrawFeesForPair.selector);
+        pair.withdrawFees(address(pair));
+    }
 
     function testWithdrawFeesSuccess() public {
         GoatTypes.InitParams memory initParams;
