@@ -1079,6 +1079,22 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
+    function testRevertPoolTakeoverIfTakeoverInitialEthIsNotEqualToLastInitialEth() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 5e18;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        initParams.initialEth = 0;
+        vm.startPrank(users.lp1);
+        vm.expectRevert(GoatErrors.IncorrectTakeoverInitialEth.selector);
+        pair.takeOverPool(initParams);
+        vm.stopPrank();
+    }
+
     function testRevertPoolTakeOverWithNotEnoughTokenInitParam() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
