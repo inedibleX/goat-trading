@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
 // library imports
@@ -15,6 +15,13 @@ import {GoatErrors} from "../library/GoatErrors.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
 import {IWETH} from "../interfaces/IWETH.sol";
 
+/**
+ * @title Goat V1 Router
+ * @notice Router for stateless execution of swaps and liquidity provision
+ * @dev This contract is used for adding/removing liquidity, swapping tokens and withdrawing fees
+ * @dev This contract is stateless and does not store any data
+ * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
+ */
 contract GoatV1Router is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -138,9 +145,121 @@ contract GoatV1Router is ReentrancyGuard {
         }
     }
 
-    /* ----------------------------- SWAP FUNCTIONS ----------------------------- */
-    function swapWethForExactTokens(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
-        external
+    function removeLiquidityETHSupportingFeeOnTransferTokens(
+        address token,
+        uint256 liquidity,
+        uint256 tokenMin,
+        uint256 ethMin,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256 amountWeth) {
+        (amountWeth,) = removeLiquidity(token, liquidity, tokenMin, ethMin, address(this), deadline);
+        IERC20(token).safeTransfer(to, IERC20(token).balanceOf(address(this)));
+        IWETH(WETH).withdraw(amountWeth);
+        (bool success,) = to.call{value: amountWeth}("");
+        if (!success) {
+            revert GoatErrors.EthTransferFailed();
+        }
+    }
+
+    /* ----------------------------- SWAP FUNCTIONS FOR FEE ON TRANSFER TOKENS ----------------------------- */
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) {
+        if (path.length != 2) {
+            revert GoatErrors.InvalidPath();
+        }
+        if (path[0] == WETH) {
+            swapExactWethForTokensSupportingFeeOnTransferTokens(amountIn, amountOutMin, path[1], to, deadline);
+        } else if (path[1] == WETH) {
+            swapExactTokensForWethSupportingFeeOnTransferTokens(amountIn, amountOutMin, path[0], to, deadline);
+        } else {
+            revert GoatErrors.InvalidPath();
+        }
+    }
+
+    function swapExactWethForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address token,
+        address to,
+        uint256 deadline
+    ) public ensure(deadline) nonReentrant {
+        IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
+        _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, true);
+    }
+
+    function swapETHForExactTokensSupportingFeeOnTransferTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable ensure(deadline) nonReentrant {
+        if (path.length != 2 || path[0] != WETH) {
+            revert GoatErrors.InvalidPath();
+        }
+
+        IWETH(WETH).deposit{value: msg.value}();
+        IERC20(WETH).safeTransfer(address(GoatV1Factory(FACTORY).getPool(path[1])), msg.value);
+        _swapSupportingFeeOnTransferTokens(path[1], to, amountOutMin, true);
+    }
+
+    function swapExactTokensForWethSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address token,
+        address to,
+        uint256 deadline
+    ) public ensure(deadline) nonReentrant {
+        IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
+        _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, false);
+    }
+
+    /* ----------------------------- SWAP FUNCTIONS  ----------------------------- */
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = getAmountsOut(amountIn, path);
+        if (amounts[1] < amountOutMin) {
+            revert GoatErrors.InsufficientOutputAmount();
+        }
+
+        if (path[0] == WETH) {
+            swapExactWethForTokens(amountIn, amounts[1], path[1], to, deadline);
+        } else {
+            swapExactTokensForWeth(amountIn, amounts[1], path[0], to, deadline);
+        }
+    }
+
+    function swapTokensForExactTokens(
+        uint256 amountOut,
+        uint256 amountInMax,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        amounts = getAmountsIn(amountOut, path);
+        if (amounts[0] > amountInMax) {
+            revert GoatErrors.ExcessiveInputAmount();
+        }
+
+        if (path[0] == WETH) {
+            amounts[1] = swapExactWethForTokens(amounts[0], amountOut, path[1], to, deadline);
+        } else {
+            amounts[1] = swapExactTokensForWeth(amounts[0], amountOut, path[0], to, deadline);
+        }
+    }
+
+    function swapExactWethForTokens(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
+        public
         ensure(deadline)
         nonReentrant
         returns (uint256 amountTokenOut)
@@ -151,15 +270,19 @@ contract GoatV1Router is ReentrancyGuard {
         pair.swap(amountTokenOut, ZERO, to);
     }
 
-    function swapExactETHForTokens(uint256 amountOutMin, address token, address to, uint256 deadline)
+    function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
         external
         payable
         ensure(deadline)
         nonReentrant
         returns (uint256 amountTokenOut)
     {
+        if (path.length != 2 || path[0] != WETH) {
+            revert GoatErrors.InvalidPath();
+        }
+
         GoatV1Pair pair;
-        (amountTokenOut, pair) = _getAmountTokenOut(msg.value, amountOutMin, token);
+        (amountTokenOut, pair) = _getAmountTokenOut(msg.value, amountOutMin, path[1]);
         IWETH(WETH).deposit{value: msg.value}();
         IERC20(WETH).safeTransfer(address(pair), msg.value);
         pair.swap(amountTokenOut, 0, to);
@@ -174,26 +297,8 @@ contract GoatV1Router is ReentrancyGuard {
         if (amountIn == 0) {
             revert GoatErrors.InsufficientInputAmount();
         }
-
-        GoatTypes.LocalVariables_PairStateInfo memory vars;
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
-        if (pair == GoatV1Pair(address(0))) {
-            revert GoatErrors.GoatPoolDoesNotExist();
-        }
-        if (pair.vestingUntil() != type(uint32).max) {
-            (uint112 reserveEth, uint112 reserveToken) = pair.getStateInfoAmm();
-            amountWethOut = GoatLibrary.getWethAmountOutAmm(amountIn, reserveEth, reserveToken);
-        } else {
-            (vars.reserveEth, vars.reserveToken, vars.virtualEth,,, vars.virtualToken) = pair.getStateInfoForPresale();
-
-            amountWethOut = GoatLibrary.getWethAmountOutPresale(
-                amountIn, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken
-            );
-        }
-
-        if (amountWethOut < amountOutMin) {
-            revert GoatErrors.InsufficientAmountOut();
-        }
+        GoatV1Pair pair;
+        (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
         pair.swap(0, amountWethOut, to);
     }
@@ -211,18 +316,24 @@ contract GoatV1Router is ReentrancyGuard {
         pair.withdrawFees(to);
     }
 
-    /* ----------------------------- PUBLIC VIEW FUNCTIONS ----------------------------- */
+    /* --------------------------- INTERNAL FUNCTIONS --------------------------- */
+    function _swapSupportingFeeOnTransferTokens(address token, address to, uint256 amountOutMin, bool isWethIn)
+        internal
+    {
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        // We need a real reserves here even in presale, we use getStateInfoAmm
+        (uint112 reserveWeth, uint112 reserveToken) = pair.getStateInfoAmm();
 
-    function getActualBootstrapTokenAmount(
-        uint256 virtualEth,
-        uint256 bootstrapEth,
-        uint256 initialEth,
-        uint256 initialTokenMatch
-    ) public pure returns (uint256 actualTokenAmount) {
-        return GoatLibrary.getActualBootstrapTokenAmount(virtualEth, bootstrapEth, initialEth, initialTokenMatch);
+        uint112 reserveInput = isWethIn ? reserveWeth : reserveToken;
+        address input = isWethIn ? WETH : token;
+        uint256 amountInput = IERC20(input).balanceOf(address(pair)) - reserveInput;
+
+        (uint256 amountOutput,) = isWethIn
+            ? _getAmountTokenOut(amountInput, amountOutMin, token)
+            : _getAmountWethOut(amountInput, amountOutMin, token);
+        pair.swap(isWethIn ? amountOutput : 0, isWethIn ? 0 : amountOutput, to);
     }
 
-    /* --------------------------- INTERNAL FUNCTIONS --------------------------- */
     function _addLiquidity(
         address token,
         uint256 tokenDesired,
@@ -270,7 +381,9 @@ contract GoatV1Router is ReentrancyGuard {
             } else {
                 uint256 wethAmountOptimal = GoatLibrary.quote(tokenDesired, tokenReserve, wethReserve);
                 assert(wethAmountOptimal <= wethDesired);
-                if (wethAmountOptimal < wethMin) revert GoatErrors.InsufficientWethAmount();
+                if (wethAmountOptimal < wethMin) {
+                    revert GoatErrors.InsufficientWethAmount();
+                }
                 (vars.tokenAmount, vars.wethAmount) = (tokenDesired, wethAmountOptimal);
             }
         }
@@ -357,5 +470,140 @@ contract GoatV1Router is ReentrancyGuard {
         if (amountTokenOut < amountOutMin) {
             revert GoatErrors.InsufficientAmountOut();
         }
+    }
+
+    function _getAmountWethOut(uint256 amountIn, uint256 amountOutMin, address token)
+        internal
+        view
+        returns (uint256 amountWethOut, GoatV1Pair pair)
+    {
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        if (pair == GoatV1Pair(address(0))) {
+            revert GoatErrors.GoatPoolDoesNotExist();
+        }
+        if (pair.vestingUntil() != type(uint32).max) {
+            (uint112 reserveEth, uint112 reserveToken) = pair.getStateInfoAmm();
+            amountWethOut = GoatLibrary.getWethAmountOutAmm(amountIn, reserveEth, reserveToken);
+        } else {
+            (vars.reserveEth, vars.reserveToken, vars.virtualEth,,, vars.virtualToken) = pair.getStateInfoForPresale();
+
+            amountWethOut = GoatLibrary.getWethAmountOutPresale(
+                amountIn, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken
+            );
+        }
+        if (amountWethOut < amountOutMin) {
+            revert GoatErrors.InsufficientAmountOut();
+        }
+    }
+
+    /* ----------------------------- VIEW FUNCTIONS ----------------------------- */
+    function quote(uint256 amountA, uint256 reserveA, uint256 reserveB) external pure returns (uint256 amountB) {
+        return GoatLibrary.quote(amountA, reserveA, reserveB);
+    }
+
+    function getAmountsOut(uint256 amountIn, address[] memory path) public view returns (uint256[] memory amounts) {
+        //path[0] is the input token and path[1] is the output token
+        if (path.length != 2) revert GoatErrors.InvalidPath(); // only allow swap in one pool for now
+        if (path[0] != WETH && path[1] != WETH) {
+            // One of the token should be WETH
+            revert GoatErrors.InvalidPath();
+        }
+        address token = path[0] == WETH ? path[1] : path[0];
+        amounts = new uint256[](2);
+        amounts[0] = amountIn;
+        if (path[0] == WETH) {
+            // Token in is WETH
+            (uint256 amountOut,) = _getAmountTokenOut(amountIn, 0, token);
+            amounts[1] = amountOut;
+        } else {
+            // Token out is WETH
+            (uint256 amountOut,) = _getAmountWethOut(amountIn, 0, token);
+            amounts[1] = amountOut;
+        }
+    }
+
+    function getTokenAmountOut(uint256 amountWethIn, address token) external view returns (uint256 tokenAmountOut) {
+        (tokenAmountOut,) = _getAmountTokenOut(amountWethIn, 0, token);
+    }
+
+    function getWethAmountOut(uint256 amountTokenIn, address token) external view returns (uint256 wethAmountOut) {
+        (wethAmountOut,) = _getAmountWethOut(amountTokenIn, 0, token);
+    }
+
+    function getAmountsIn(uint256 amountOut, address[] memory path) public view returns (uint256[] memory amounts) {
+        if (path.length != 2) revert GoatErrors.InvalidPath(); // only allow swap in one pool for now
+        if (path[0] != WETH && path[1] != WETH) {
+            // One of the token should be WETH
+            revert GoatErrors.InvalidPath();
+        }
+        address token = path[0] == WETH ? path[1] : path[0];
+        amounts = new uint256[](2);
+        amounts[1] = amountOut;
+        if (path[0] == WETH) {
+            // Token in is WETH so, we ned to figure how much wethIn is needed for desired token amountOut
+            uint256 amountIn = getWethAmountIn(amountOut, token);
+            amounts[0] = amountIn;
+        } else {
+            // Token out is WETH, so we need to figure out how much tokenIn is needed for desired weth amountOut
+            uint256 amountIn = getTokenAmountIn(amountOut, token);
+            amounts[0] = amountIn;
+        }
+    }
+
+    function getTokenAmountIn(uint256 wethAmountOut, address token) public view returns (uint256 tokenAmountIn) {
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        if (address(pair) == address(0)) {
+            revert GoatErrors.GoatPoolDoesNotExist();
+        }
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        tokenAmountIn = GoatLibrary.getTokenAmountIn(
+            wethAmountOut, vars.reserveEth, vars.reserveToken, vars.virtualEth, vars.virtualToken, pair.vestingUntil()
+        );
+    }
+
+    function getWethAmountIn(uint256 tokenAmountOut, address token) public view returns (uint256 wethAmountIn) {
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        if (address(pair) == address(0)) {
+            revert GoatErrors.GoatPoolDoesNotExist();
+        }
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+
+        wethAmountIn = GoatLibrary.getWethAmountIn(
+            tokenAmountOut,
+            vars.virtualEth,
+            vars.virtualToken,
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.bootstrapEth,
+            vars.initialTokenMatch,
+            pair.vestingUntil()
+        );
+    }
+
+    function getActualBootstrapTokenAmount(
+        uint256 virtualEth,
+        uint256 bootstrapEth,
+        uint256 initialEth,
+        uint256 initialTokenMatch
+    ) public pure returns (uint256 actualTokenAmount) {
+        return GoatLibrary.getActualBootstrapTokenAmount(virtualEth, bootstrapEth, initialEth, initialTokenMatch);
     }
 }
