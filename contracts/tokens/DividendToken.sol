@@ -162,7 +162,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
             revert TokenErrors.OnlyTeam();
         }
 
-        _updateRewards(address(0));
+        rewardPerTokenStored = _rewardPerToken();
 
         uint256 reward = msg.value;
         // small precision loss in reward rate is accepted as it is not scaled.
