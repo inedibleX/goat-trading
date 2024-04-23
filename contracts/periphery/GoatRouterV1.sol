@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 // library imports
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
@@ -22,7 +21,7 @@ import {IWETH} from "../interfaces/IWETH.sol";
  * @dev This contract is stateless and does not store any data
  * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
  */
-contract GoatV1Router is ReentrancyGuard {
+contract GoatV1Router {
     using SafeERC20 for IERC20;
 
     address public immutable FACTORY;
@@ -57,7 +56,7 @@ contract GoatV1Router is ReentrancyGuard {
         address to,
         uint256 deadline,
         GoatTypes.InitParams memory initParams
-    ) external nonReentrant ensure(deadline) returns (uint256, uint256, uint256) {
+    ) external ensure(deadline) returns (uint256, uint256, uint256) {
         GoatTypes.LocalVariables_AddLiquidity memory vars = _ensurePoolAndPrepareLiqudityParameters(
             token, tokenDesired, wethDesired, tokenMin, wethMin, initParams, false
         );
@@ -115,7 +114,7 @@ contract GoatV1Router is ReentrancyGuard {
         uint256 wethMin,
         address to,
         uint256 deadline
-    ) public nonReentrant ensure(deadline) returns (uint256 amountWeth, uint256 amountToken) {
+    ) public ensure(deadline) returns (uint256 amountWeth, uint256 amountToken) {
         address pair = GoatV1Factory(FACTORY).getPool(token);
 
         IERC20(pair).safeTransferFrom(msg.sender, pair, liquidity);
@@ -188,7 +187,7 @@ contract GoatV1Router is ReentrancyGuard {
         address token,
         address to,
         uint256 deadline
-    ) public ensure(deadline) nonReentrant {
+    ) public ensure(deadline) {
         IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
         _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, true);
     }
@@ -198,7 +197,7 @@ contract GoatV1Router is ReentrancyGuard {
         address[] calldata path,
         address to,
         uint256 deadline
-    ) external payable ensure(deadline) nonReentrant {
+    ) external payable ensure(deadline) {
         if (path.length != 2 || path[0] != WETH) {
             revert GoatErrors.InvalidPath();
         }
@@ -214,7 +213,7 @@ contract GoatV1Router is ReentrancyGuard {
         address token,
         address to,
         uint256 deadline
-    ) public ensure(deadline) nonReentrant {
+    ) public ensure(deadline) {
         IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
         _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, false);
     }
@@ -261,7 +260,6 @@ contract GoatV1Router is ReentrancyGuard {
     function swapExactWethForTokens(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
         public
         ensure(deadline)
-        nonReentrant
         returns (uint256 amountTokenOut)
     {
         GoatV1Pair pair;
@@ -274,7 +272,6 @@ contract GoatV1Router is ReentrancyGuard {
         external
         payable
         ensure(deadline)
-        nonReentrant
         returns (uint256 amountTokenOut)
     {
         if (path.length != 2 || path[0] != WETH) {
@@ -291,7 +288,6 @@ contract GoatV1Router is ReentrancyGuard {
     function swapExactTokensForWeth(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
         public
         ensure(deadline)
-        nonReentrant
         returns (uint256 amountWethOut)
     {
         if (amountIn == 0) {
@@ -304,7 +300,7 @@ contract GoatV1Router is ReentrancyGuard {
     }
 
     /* ------------------------------ WITHDRAW FEES ----------------------------- */
-    function withdrawFees(address token, address to) external nonReentrant {
+    function withdrawFees(address token, address to) external {
         if (to == address(0)) {
             revert GoatErrors.ZeroAddress();
         }
