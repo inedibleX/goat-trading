@@ -19,6 +19,10 @@ contract TaxShareToken is TaxToken {
     // Amount of taxes to be shared with users. 100 == 1%.
     uint256 public sharePercent;
 
+    // Number of tokens that are not receiving rewards. This amount subtracted from total supply
+    // when determining rewards per token so people get full rewards owed.
+    uint256 public excludedSupply;
+
     constructor(
         string memory _name,
         string memory _symbol,
@@ -69,8 +73,9 @@ contract TaxShareToken is TaxToken {
         uint256 receiveValue = value - tax;
 
         // TaxShare: Add rewards to both user token balance.
-        // Add more in case it's a dex?
         _updateRewards(from, to);
+        // Update excluded supply.
+        _updateExcluded(from, to, value);
 
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
@@ -101,8 +106,7 @@ contract TaxShareToken is TaxToken {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
-        } else {
-            _sellTaxes();
+            _sellTaxes(tax);
         }
 
         emit Transfer(from, to, value);
@@ -127,6 +131,19 @@ contract TaxShareToken is TaxToken {
     }
 
     /**
+     * @notice Update the amount of tokens excluded from reward calculations.
+     *         Includes excluding 0, this, and taxed.
+     * @param _from The address sending tokens.
+     * @param _to The address receiving tokens.
+     * @param _value The amount of tokens being sent.
+     *
+     */
+    function _updateExcluded(address _from, address _to, uint256 _value) internal {
+        if (_to == address(this) || taxed[_to]) excludedSupply += _value;
+        if (_from == address(this) || taxed[_from]) excludedSupply -= _value;
+    }
+
+    /**
      * @notice In addition to awarding taxes to this address, add them to the rewards for users.
      * @param _amount Amount of tax tokens to be awarded.
      *
@@ -134,34 +151,8 @@ contract TaxShareToken is TaxToken {
     function _awardTaxes(uint256 _amount) internal override {
         uint256 reward = _amount * sharePercent / _DIVISOR;
         // 1e18 is removed because rewardPerToken is in full tokens
-        rewardPerTokenStored += reward / (_totalSupply / 1e18);
+        rewardPerTokenStored += reward / ((_totalSupply - excludedSupply) / 1e18);
         _balances[address(this)] += _amount - reward;
-    }
-    /**
-     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
-     *
-     */
-
-    function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = _WETH;
-
-        tokens = balanceOf(address(this));
-
-        // return if dex is not set
-        if (dex == address(0)) return (0, 0);
-        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
-            ethValue = amounts[1];
-            if (ethValue > _minSell) {
-                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-                tokens = tokens * _minSell / ethValue;
-                // Try/catch because during bootstrapping selling won't be allowed.
-                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, address(this), treasury, block.timestamp
-                ) {} catch (bytes memory) {}
-            }
-        } catch (bytes memory) {}
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */

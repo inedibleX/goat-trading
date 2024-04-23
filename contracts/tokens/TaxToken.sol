@@ -35,8 +35,6 @@ contract TaxToken is ERC20, Ownable {
     uint256 internal constant _TAX_MAX = 1_000;
     address internal immutable _WETH;
 
-    uint256 internal _minSell;
-
     // Team address that will receive tax profits.
     address public treasury;
     address public dex;
@@ -101,8 +99,7 @@ contract TaxToken is ERC20, Ownable {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
-        } else {
-            _sellTaxes();
+            _sellTaxes(tax);
         }
 
         emit Transfer(from, to, value);
@@ -116,6 +113,8 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function _determineTax(address _from, address _to, uint256 _value) internal view returns (uint256 taxAmount) {
+        if (_from == address(this) || _to == address(this)) return 0;
+        
         uint256 fromTax = buyTax[_from];
         uint256 toTax = sellTax[_to];
 
@@ -138,26 +137,17 @@ contract TaxToken is ERC20, Ownable {
      * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
      *
      */
-    function _sellTaxes() internal virtual returns (uint256 tokens, uint256 ethValue) {
+    function _sellTaxes(uint256 _tax) internal virtual returns (uint256 tokens, uint256 ethValue) {
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = _WETH;
 
-        tokens = _balances[address(this)];
-
         // return if dex is not set
         if (dex == address(0)) return (0, 0);
-        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
-            ethValue = amounts[1];
-            if (ethValue > _minSell) {
-                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-                tokens = tokens * _minSell / ethValue;
-                // Try/catch because during bootstrapping selling won't be allowed.
-                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, address(this), treasury, block.timestamp
-                ) {} catch (bytes memory) {}
-            }
-        } catch (bytes memory) {}
+
+        try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+            _tax, 0, address(this), treasury, block.timestamp
+        ) {} catch (bytes memory) {}
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
@@ -183,22 +173,24 @@ contract TaxToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Change the minimum amount of Ether value required before selling taxes.
-     * @param _newMinSell Minimum value required before a sell. In Ether wei so 1e18 is 1 Ether.
-     *
-     */
-    function changeMinSell(uint256 _newMinSell) external onlyOwnerOrTreasury {
-        _minSell = _newMinSell;
-    }
-
-    /**
      * @notice Change the dex that taxes are to be sold on. Requires a Uni V2 interface.
      * @param _dexAddress New address to sell tokens on.
      *
      */
     function changeDex(address _dexAddress) external onlyOwnerOrTreasury {
+        IERC20(address(this)).approve(dex, 0);
         dex = _dexAddress;
         IERC20(address(this)).approve(_dexAddress, type(uint256).max);
+    }
+
+    /**
+     * @notice Withdraw tokens from taxes if they're not being sold. Primarily for after bootstrapping.
+     * @param _target Address to send the taxed tokens to.
+     *
+     */
+    function withdrawTokens(address _target) external onlyOwnerOrTreasury {
+        uint256 balance = balanceOf(address(this));
+        _transfer(address(this), _target, balance);
     }
 
     /* ********************************************* ONLY OWNER ********************************************* */
@@ -221,9 +213,4 @@ contract TaxToken is ERC20, Ownable {
         else taxed[_dex] = false;
     }
 
-    /* ********************************************* VIEW FUNCTIONS ********************************************* */
-
-    function minSell() external view returns (uint256) {
-        return _minSell;
-    }
 }

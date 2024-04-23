@@ -107,8 +107,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
-        } else {
-            _sellTaxes();
+            _sellTaxes(tax);
         }
 
         emit Transfer(from, to, value);
@@ -162,6 +161,8 @@ contract DividendToken is TaxToken, ReentrancyGuard {
         if (msg.sender != rewarder) {
             revert TokenErrors.OnlyTeam();
         }
+
+        _updateRewards(address(0));
 
         uint256 reward = msg.value;
         // small precision loss in reward rate is accepted as it is not scaled.

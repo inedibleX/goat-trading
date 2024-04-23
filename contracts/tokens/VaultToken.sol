@@ -39,6 +39,7 @@ contract VaultToken is TaxToken {
      */
     function redeem(uint256 _amount) external {
         uint256 ethOwed = _amount * vaultEth / totalSupply();
+        vaultEth -= ethOwed;
         _burn(msg.sender, _amount);
         payable(msg.sender).transfer(ethOwed);
     }
@@ -56,32 +57,25 @@ contract VaultToken is TaxToken {
      * @dev Within this sell taxes and add a percent of the return to the vault.
      *
      */
-    function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
+    function _sellTaxes(uint256 _tax) internal override returns (uint256 tokens, uint256 ethValue) {
         address token = address(this);
         address[] memory path = new address[](2);
         path[0] = token;
         path[1] = _WETH;
 
-        tokens = _balances[token];
-
         // return if dex is not set
         if (dex == address(0)) return (0, 0);
 
-        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
-            ethValue = amounts[1];
-            if (ethValue > _minSell) {
-                // How do we make impact minor here...
-                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, token, token, block.timestamp
-                ) {
-                    ethValue = IWETH(_WETH).balanceOf(address(this));
-                    IWETH(_WETH).withdraw(ethValue);
+        // How do we make impact minor here...
+        try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+            _tax, 0, token, token, block.timestamp
+        ) {
+            ethValue = IWETH(_WETH).balanceOf(address(this));
+            IWETH(_WETH).withdraw(ethValue);
 
-                    uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
-                    vaultEth += ethForVault;
-                    payable(treasury).transfer(ethValue - ethForVault);
-                } catch (bytes memory) {}
-            }
+            uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
+            vaultEth += ethForVault;
+            payable(treasury).transfer(ethValue - ethForVault);
         } catch (bytes memory) {}
     }
 
