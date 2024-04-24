@@ -1139,6 +1139,7 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
+
     function testRevertPoolTakeOverWithNotEnoughTokenInitParam() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
