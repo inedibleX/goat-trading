@@ -173,7 +173,7 @@ contract GoatV1Router {
             revert GoatErrors.InvalidPath();
         }
         if (path[0] == WETH) {
-            swapExactWethForTokensSupportingFeeOnTranferTokens(amountIn, amountOutMin, path[1], to, deadline);
+            swapExactWethForTokensSupportingFeeOnTransferTokens(amountIn, amountOutMin, path[1], to, deadline);
         } else if (path[1] == WETH) {
             swapExactTokensForWethSupportingFeeOnTransferTokens(amountIn, amountOutMin, path[0], to, deadline);
         } else {
@@ -181,7 +181,7 @@ contract GoatV1Router {
         }
     }
 
-    function swapExactWethForTokensSupportingFeeOnTranferTokens(
+    function swapExactWethForTokensSupportingFeeOnTransferTokens(
         uint256 amountIn,
         uint256 amountOutMin,
         address token,
