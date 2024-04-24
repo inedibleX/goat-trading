@@ -4,13 +4,16 @@ pragma solidity 0.8.19;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import {BaseTokenTest, TaxToken, TokenFactory, console2} from "./BaseTokenTest.t.sol";
+import {BaseTokenTest, TaxToken, TokenFactory} from "./BaseTokenTest.t.sol";
+
+import {console2} from "forge-std/console2.sol";
 
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
+import {GoatV1Pair} from "./../../../contracts/exchange/GoatV1Pair.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -140,41 +143,6 @@ contract TaxTokenTest is BaseTokenTest {
         vm.stopPrank();
     }
 
-    function testChangeMinSellSuccess() public {
-        GoatTypes.InitParams memory initParams;
-        initParams.bootstrapEth = 10e18;
-        initParams.initialEth = 0;
-        initParams.initialTokenMatch = 1000e18;
-        initParams.virtualEth = 10e18;
-
-        createTokenAndAddLiquidity(initParams, RevertType.None);
-
-        assertEq(plainTax.minSell(), 0.1 ether, "Min sell should be 0");
-
-        vm.startPrank(users.owner);
-        plainTax.changeMinSell(1 ether);
-        vm.stopPrank();
-
-        assertEq(plainTax.minSell(), 1 ether, "Min sell should be 100");
-    }
-
-    function testChangeMinSellRevertOnNotOwnerOrTreasury() public {
-        GoatTypes.InitParams memory initParams;
-        initParams.bootstrapEth = 10e18;
-        initParams.initialEth = 0;
-        initParams.initialTokenMatch = 1000e18;
-        initParams.virtualEth = 10e18;
-
-        createTokenAndAddLiquidity(initParams, RevertType.None);
-
-        assertEq(plainTax.minSell(), 0.1 ether, "Min sell should be 0");
-
-        vm.startPrank(users.bob);
-        vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
-        plainTax.changeMinSell(1 ether);
-        vm.stopPrank();
-    }
-
     function testChangeDexSuccess() public {
         GoatTypes.InitParams memory initParams;
         initParams.bootstrapEth = 10e18;
@@ -275,9 +243,9 @@ contract TaxTokenTest is BaseTokenTest {
             transferAmount - expectedTax,
             "Dex balance should be transfer amount minus tax"
         );
-        uint256 taxContractBal = plainTax.balanceOf(address(plainTax));
-        assertEq(taxContractBal, expectedTax, "Treasury balance should be tax amount");
-
+        uint256 treasuryBal = plainTax.balanceOf(users.treasury);
+        assertEq(treasuryBal, expectedTax, "Treasury balance should be tax amount");
+        vm.warp(block.timestamp + 2);
         transferAmount = 5e18;
         vm.startPrank(users.dex);
         plainTax.transfer(users.bob, transferAmount);
@@ -291,9 +259,57 @@ contract TaxTokenTest is BaseTokenTest {
             "Dex balance should be transfer amount minus tax"
         );
 
-        assertEq(
-            plainTax.balanceOf(address(plainTax)) - taxContractBal, expectedTax, "Treasury balance should be tax amount"
-        );
+        assertEq(plainTax.balanceOf(users.treasury) - treasuryBal, expectedTax, "Treasury balance should be tax amount");
+    }
+
+    function testPlainTaxOnTransfers() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.alice, 100, 100);
+        vm.stopPrank();
+        uint256 aliceBalBefore = plainTax.balanceOf(users.alice);
+        uint256 amount = 10e18;
+        vm.startPrank(users.owner);
+        plainTax.transfer(users.alice, amount);
+        uint256 aliceBalAfter = plainTax.balanceOf(users.alice);
+        uint256 tax = amount * 100 / 10000;
+
+        assertEq(aliceBalAfter - aliceBalBefore, amount - tax, "Alice balance diff should be amount minus tax");
+
+        amount = amount / 2;
+
+        aliceBalBefore = aliceBalAfter;
+        uint256 bobBalBefore = plainTax.balanceOf(users.bob);
+        vm.startPrank(users.alice);
+        plainTax.transfer(users.bob, amount);
+        vm.stopPrank();
+        tax = amount * 100 / 10000;
+        aliceBalAfter = plainTax.balanceOf(users.alice);
+
+        uint256 bobBalAfter = plainTax.balanceOf(users.bob);
+
+        assertEq(aliceBalBefore - aliceBalAfter, amount, "Alice balance diff should be amount minus tax");
+
+        assertEq(bobBalAfter - bobBalBefore, amount - tax, "Bob balance diff should be amount minus tax");
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.alice, 0, 0);
+        vm.stopPrank();
+
+        aliceBalBefore = aliceBalAfter;
+        vm.startPrank(users.bob);
+        plainTax.transfer(users.alice, bobBalAfter);
+        vm.stopPrank();
+        aliceBalAfter = plainTax.balanceOf(users.alice);
+
+        assertEq(aliceBalAfter - aliceBalBefore, bobBalAfter, "Alice balance diff should be bob's balance");
     }
 
     function testSellTaxesSuccessWithNecessaryUpdates() public {
@@ -309,58 +325,77 @@ contract TaxTokenTest is BaseTokenTest {
         plainTax.transferTreasury(users.treasury);
         plainTax.changeDex(address(router));
         vm.stopPrank();
+
         address[] memory path = new address[](2);
         path[0] = address(router.WETH());
         path[1] = address(plainTax);
         uint256 amountIn = 12e18;
         uint256[] memory amounts = router.getAmountsOut(amountIn, path);
+        uint256 pairTokenBalBefore = plainTax.balanceOf(pair);
         vm.startPrank(users.whale);
         // fund bob with some weth
+        uint256 treasuryTokenBalBefore = plainTax.balanceOf(users.treasury);
+        uint256 tax = amounts[1] * 100 / 10000;
+        uint256 amountOutMin = amounts[1] - tax;
         weth.transfer(users.bob, 20e18);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(plainTax), users.whale, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
         vm.stopPrank();
+        uint256 treasuryTokenBalAfter = plainTax.balanceOf(users.treasury);
+        uint256 swapperTokenBalAfter = plainTax.balanceOf(users.whale);
+        uint256 pairTokenBalAfter = plainTax.balanceOf(pair);
 
+        assertEq(treasuryTokenBalAfter - treasuryTokenBalBefore, tax, "Treasury balance should be tax amount");
+        assertEq(pairTokenBalBefore - pairTokenBalAfter, swapperTokenBalAfter + tax);
+
+        vm.warp(block.timestamp + 10 days);
+
+        // update treasury bal before
+        treasuryTokenBalBefore = treasuryTokenBalAfter;
         amountIn = 2e18;
         amounts = router.getAmountsOut(amountIn, path);
-
+        tax = (amounts[1] * 1000) / 10000;
+        amountOutMin = amounts[1] - tax;
         vm.startPrank(users.bob);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(plainTax), users.bob, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.bob, block.timestamp
+        );
         vm.stopPrank();
+        treasuryTokenBalAfter = plainTax.balanceOf(users.treasury);
         uint256 bobTaxTokenBal = plainTax.balanceOf(users.bob);
-        uint256 tax = amounts[1] * 100 / 10000;
+        tax = amounts[1] * 100 / 10000;
 
+        assertEq(treasuryTokenBalAfter - treasuryTokenBalBefore, tax, "Treasury balance should be tax amount");
         assertEq(bobTaxTokenBal, amounts[1] - tax, "Bob tax token balance should be amount in minus tax");
 
-        uint256 amountToSell = plainTax.balanceOf(address(plainTax));
-        router.getAmountsOut(amountToSell, path);
+        // SWAP TOKENS FOR WETH
 
-        uint256 taxBalBefore = plainTax.balanceOf(address(plainTax));
         path[0] = address(plainTax);
         path[1] = address(router.WETH());
-        amounts = router.getAmountsOut(taxBalBefore, path);
 
-        uint256 totalEthValue = amounts[1];
+        amountIn = 10e18;
+        amounts = router.getAmountsOut(amountIn - amountIn * 100 / 10000, path);
 
-        uint256 actualAmountOut = taxBalBefore * 0.1 ether / totalEthValue;
+        uint256 treasuryWethBalBefore = weth.balanceOf(users.treasury);
 
-        tax = actualAmountOut * 100 / 10000;
-
-        // change timestamp to bypass vesting period
-        vm.warp(block.timestamp + 10 days);
-        vm.startPrank(users.owner);
-        plainTax.transfer(users.alice, 10e18);
+        // increase time
+        vm.warp(block.timestamp + 1 days);
+        vm.startPrank(users.bob);
+        plainTax.approve(address(router), amountIn);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, (amounts[1] - (amounts[1] * 100 / 10000)), path, users.bob, block.timestamp
+        );
         vm.stopPrank();
-        uint256 taxBalAfter = plainTax.balanceOf(address(plainTax));
+        uint256 treasuryWethBalAfter = weth.balanceOf(users.treasury);
 
-        uint256 treasuryBalAfter = weth.balanceOf(users.treasury);
-        assertGe(treasuryBalAfter, 0.1 ether);
-
-        assertEq(
-            taxBalAfter,
-            taxBalBefore - actualAmountOut + tax,
-            "Tax balance should be tax balance before minus actual amount out"
+        // Should swap tax for some amount of weth
+        assertGt(
+            treasuryWethBalAfter,
+            treasuryWethBalBefore,
+            "Treasury weth balance should be greater than treasury weth balance before"
         );
     }
 

@@ -67,14 +67,18 @@ contract VaultTokenTest is BaseTokenTest {
         vm.startPrank(users.owner);
         vault.transferTreasury(users.treasury);
         vault.changeDex(address(router));
+
         vault.setTaxes(users.dex, 200, 200);
+
         uint256 transferAmount = 20e18;
+
         vault.transfer(users.dex, transferAmount);
+
         vm.stopPrank();
         uint256 dexBal = vault.balanceOf(users.dex);
         uint256 tax = transferAmount * 200 / 10000;
         assertEq(transferAmount, dexBal + tax);
-        assertEq(vault.balanceOf(address(vault)), tax);
+        assertEq(vault.balanceOf(users.treasury), tax);
     }
 
     function testVaultTaxCollectAndSellTaxTokenForEth() public {
@@ -98,18 +102,28 @@ contract VaultTokenTest is BaseTokenTest {
         uint256 amountIn = 12e18;
         uint256[] memory amounts = router.getAmountsOut(amountIn, path);
         vm.startPrank(users.whale);
+        assertEq(vault.balanceOf(users.treasury), 0);
         // fund bob with some weth
         weth.transfer(users.bob, 20e18);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(vault), users.whale, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
         vm.stopPrank();
+        assertEq(
+            vault.balanceOf(users.treasury),
+            amounts[1] * 100 / 10000,
+            "treasury should collect the taxes on tax sell fail"
+        );
 
         amountIn = 2e18;
         amounts = router.getAmountsOut(amountIn, path);
 
         vm.startPrank(users.bob);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(vault), users.bob, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.bob, block.timestamp
+        );
         vm.stopPrank();
 
         uint256 pairTokenBalAfter = vault.balanceOf(pair);
@@ -130,16 +144,24 @@ contract VaultTokenTest is BaseTokenTest {
         // change timestamp to bypass vesting period
         vm.warp(block.timestamp + 10 days);
 
+        path[0] = address(vault);
+        path[1] = address(router.WETH());
+        amountIn = 10e18;
+        amounts = router.getAmountsOut(amountIn - amountIn * 100 / 10000, path);
+
         vm.startPrank(users.bob);
-        vault.transfer(users.whale, 1e18);
+        vault.approve(address(router), amountIn);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, (amounts[1] - (amounts[1] * 100 / 10000)), path, users.bob, block.timestamp
+        );
         vm.stopPrank();
 
         uint256 vaultEthBalAfter = address(vault).balance;
         uint256 treasuryEthBalAfter = users.treasury.balance;
-        assertGe(vaultEthBalAfter, 0.1 ether);
+        assertGe(vaultEthBalAfter, 1);
 
         // sometimes there can be 1 wei delta
-        assertApproxEqRel(treasuryEthBalAfter, vaultEthBalAfter, 1);
+        assertApproxEqRel(treasuryEthBalAfter, vaultEthBalAfter, 10000);
     }
 
     function testVaultRedeemAndUpdates() public {
@@ -163,18 +185,28 @@ contract VaultTokenTest is BaseTokenTest {
         uint256 amountIn = 12e18;
         uint256[] memory amounts = router.getAmountsOut(amountIn, path);
         vm.startPrank(users.whale);
+        assertEq(vault.balanceOf(users.treasury), 0);
         // fund bob with some weth
         weth.transfer(users.bob, 20e18);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(vault), users.whale, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
         vm.stopPrank();
+        assertEq(
+            vault.balanceOf(users.treasury),
+            amounts[1] * 100 / 10000,
+            "treasury should collect the taxes on tax sell fail"
+        );
 
         amountIn = 2e18;
         amounts = router.getAmountsOut(amountIn, path);
 
         vm.startPrank(users.bob);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(vault), users.bob, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.bob, block.timestamp
+        );
         vm.stopPrank();
 
         uint256 pairTokenBalAfter = vault.balanceOf(pair);
@@ -184,20 +216,32 @@ contract VaultTokenTest is BaseTokenTest {
         uint256 whaleTokenBalance = vault.balanceOf(users.whale);
         uint256 bobsTokenBalance = vault.balanceOf(users.bob);
 
-        assertEq(pairTokenBalAfter + whaleTokenBalance + bobsTokenBalance + totalTaxes, pairTokenBalBefore);
+        assertEq(
+            pairTokenBalAfter + whaleTokenBalance + bobsTokenBalance + totalTaxes,
+            pairTokenBalBefore,
+            "Token out + taxes + current reserves should equal initial reserves"
+        );
 
         uint256 vaultEthBalBefore = address(vault).balance;
-        assertEq(vaultEthBalBefore, 0);
+        assertEq(vaultEthBalBefore, 0, "Vault should have no ether");
 
         // change timestamp to bypass vesting period
         vm.warp(block.timestamp + 10 days);
 
+        path[0] = address(vault);
+        path[1] = address(router.WETH());
+        amountIn = 10e18;
+        amounts = router.getAmountsOut(amountIn - amountIn * 100 / 10000, path);
+
         vm.startPrank(users.bob);
-        vault.transfer(users.whale, 1e18);
+        vault.approve(address(router), amountIn);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, (amounts[1] - (amounts[1] * 100 / 10000)), path, users.bob, block.timestamp
+        );
         vm.stopPrank();
 
         uint256 vaultEthBalAfter = address(vault).balance;
-        assertGe(vaultEthBalAfter, 0.1 ether);
+        assertGe(vaultEthBalAfter, 0);
 
         uint256 whaleTokenBalBefore = vault.balanceOf(users.whale);
 

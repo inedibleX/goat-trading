@@ -35,8 +35,6 @@ contract TaxToken is ERC20, Ownable {
     uint256 internal constant _TAX_MAX = 1_000;
     address internal immutable _WETH;
 
-    uint256 internal _minSell;
-
     // Team address that will receive tax profits.
     address public treasury;
     address public dex;
@@ -52,8 +50,6 @@ contract TaxToken is ERC20, Ownable {
     constructor(string memory _name, string memory _symbol, uint256 _initialSupply, address _weth)
         ERC20(_name, _symbol)
     {
-        // Somewhat arbitrary minimumSell beginning
-        _minSell = 0.1 ether;
         treasury = msg.sender;
         _WETH = _weth;
         _mint(msg.sender, _initialSupply);
@@ -70,6 +66,14 @@ contract TaxToken is ERC20, Ownable {
         uint256 tax = _determineTax(from, to, value);
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
+
+        // We need to sell taxes before updating balances because user transfer
+        // to pair contract will trigger sell taxes and update reserves by using
+        //  the new balance reverting the transaction.
+        if (tax > 0) {
+            _awardTaxes(tax);
+            _sellTaxes(tax);
+        }
 
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
@@ -96,13 +100,6 @@ contract TaxToken is ERC20, Ownable {
                 // Default value here changed to receiveValue to account for possible taxes.
                 _balances[to] += receiveValue;
             }
-        }
-
-        // External interaction here must come after state changes.
-        if (tax > 0) {
-            _awardTaxes(tax);
-        } else {
-            _sellTaxes();
         }
 
         emit Transfer(from, to, value);
@@ -138,26 +135,24 @@ contract TaxToken is ERC20, Ownable {
      * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
      *
      */
-    function _sellTaxes() internal virtual returns (uint256 tokens, uint256 ethValue) {
+    function _sellTaxes(uint256 tokens) internal virtual {
+        if (dex == address(0)) {
+            // transfer tax to treasury if dex is not set
+            _transfer(address(this), treasury, tokens);
+            return;
+        }
+
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = _WETH;
 
-        tokens = _balances[address(this)];
-
-        // return if dex is not set
-        if (dex == address(0)) return (0, 0);
-        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
-            ethValue = amounts[1];
-            if (ethValue > _minSell) {
-                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-                tokens = tokens * _minSell / ethValue;
-                // Try/catch because during bootstrapping selling won't be allowed.
-                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, address(this), treasury, block.timestamp
-                ) {} catch (bytes memory) {}
-            }
-        } catch (bytes memory) {}
+        // Try/catch because this will revert on buy txns because of reentrancy
+        try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+            tokens, 0, address(this), treasury, block.timestamp
+        ) {} catch (bytes memory) {
+            // transfer tax tokens to treasury sell of tax tokens fail
+            _transfer(address(this), treasury, tokens);
+        }
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
@@ -183,15 +178,6 @@ contract TaxToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Change the minimum amount of Ether value required before selling taxes.
-     * @param _newMinSell Minimum value required before a sell. In Ether wei so 1e18 is 1 Ether.
-     *
-     */
-    function changeMinSell(uint256 _newMinSell) external onlyOwnerOrTreasury {
-        _minSell = _newMinSell;
-    }
-
-    /**
      * @notice Change the dex that taxes are to be sold on. Requires a Uni V2 interface.
      * @param _dexAddress New address to sell tokens on.
      *
@@ -212,7 +198,7 @@ contract TaxToken is ERC20, Ownable {
      * @param _sellTax The tax for sells (transactions going to the address). 1% == 100.
      *
      */
-    function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external onlyOwner {
+    function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external virtual onlyOwner {
         if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TokenErrors.TaxTooHigh();
         buyTax[_dex] = _buyTax;
         sellTax[_dex] = _sellTax;
@@ -222,8 +208,7 @@ contract TaxToken is ERC20, Ownable {
     }
 
     /* ********************************************* VIEW FUNCTIONS ********************************************* */
-
-    function minSell() external view returns (uint256) {
-        return _minSell;
+    function getTaxes(address _dex) external view returns (uint256 buy, uint256 sell) {
+        return (buyTax[_dex], sellTax[_dex]);
     }
 }
