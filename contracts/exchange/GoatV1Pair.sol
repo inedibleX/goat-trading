@@ -497,8 +497,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (
             tokenAmountIn
                 < (
-                    localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld - localVars.reserveToken
-                        + localVars.tokenAmountForPresaleNew + localVars.tokenAmountForAmmNew
+                    localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld + localVars.tokenAmountForPresaleNew
+                        + localVars.tokenAmountForAmmNew - localVars.reserveToken
                 )
         ) {
             revert GoatErrors.IncorrectTokenAmount();
@@ -909,7 +909,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
                     revert GoatErrors.ShouldWithdrawAllBalance();
                 }
             } else {
-                if (amount > lpInfo.fractionalBalance) {
+                if (amount != lpInfo.fractionalBalance) {
                     revert GoatErrors.BurnLimitExceeded();
                 }
             }

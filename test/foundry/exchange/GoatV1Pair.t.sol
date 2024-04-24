@@ -285,6 +285,33 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
+    function testPartialBurnRevertOnBurnAmountNotEqualToFractionalBalance() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 10e18;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        _mintInitialLiquidity(initParams, users.lp);
+
+        // get initial lp info
+        GoatTypes.InitialLPInfo memory initialLPInfo = pair.getInitialLPInfo();
+        // burn 1/4th of the lp
+        vm.startPrank(users.lp);
+
+        uint256 warpTime = block.timestamp + 3 days;
+        // increase block.timestamp so that initial lp can remove liquidity
+        vm.warp(warpTime);
+
+        vm.expectRevert(GoatErrors.BurnLimitExceeded.selector);
+        pair.transfer(address(pair), initialLPInfo.fractionalBalance - 1);
+
+        vm.expectRevert(GoatErrors.BurnLimitExceeded.selector);
+        pair.transfer(address(pair), initialLPInfo.fractionalBalance + 1);
+
+        vm.stopPrank();
+    }
+
     function testPartialBurnSuccessForInitialLp() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
