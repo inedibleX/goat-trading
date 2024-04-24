@@ -18,6 +18,9 @@ contract TaxShareToken is TaxToken {
 
     // Amount of taxes to be shared with users. 100 == 1%.
     uint256 public sharePercent;
+    // Number of tokens that are not receiving rewards. This amount subtracted from total supply
+    // when determining rewards per token so people get full rewards owed.
+    uint256 public excludedSupply;
 
     constructor(
         string memory _name,
@@ -71,6 +74,8 @@ contract TaxShareToken is TaxToken {
         // TaxShare: Add rewards to both user token balance.
         // Add more in case it's a dex?
         _updateRewards(from, to);
+        // Update excluded supply.
+        _updateExcluded(from, to, value);
 
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
@@ -101,8 +106,7 @@ contract TaxShareToken is TaxToken {
         // External interaction here must come after state changes.
         if (tax > 0) {
             _awardTaxes(tax);
-        } else {
-            _sellTaxes();
+            _sellTaxes(tax);
         }
 
         emit Transfer(from, to, value);
@@ -125,6 +129,19 @@ contract TaxShareToken is TaxToken {
             userRewardPerTokenPaid[_to] = rewardPerTokenStored;
         }
     }
+    /**
+     * @notice Update the amount of tokens excluded from reward calculations.
+     *         Includes excluding 0, this, and taxed.
+     * @param _from The address sending tokens.
+     * @param _to The address receiving tokens.
+     * @param _value The amount of tokens being sent.
+     *
+     */
+
+    function _updateExcluded(address _from, address _to, uint256 _value) internal {
+        if (_to == address(this) || taxed[_to]) excludedSupply += _value;
+        if (_from == address(this) || taxed[_from]) excludedSupply -= _value;
+    }
 
     /**
      * @notice In addition to awarding taxes to this address, add them to the rewards for users.
@@ -137,39 +154,44 @@ contract TaxShareToken is TaxToken {
         rewardPerTokenStored += reward / (_totalSupply / 1e18);
         _balances[address(this)] += _amount - reward;
     }
-    /**
-     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
-     *
-     */
-
-    function _sellTaxes() internal override returns (uint256 tokens, uint256 ethValue) {
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = _WETH;
-
-        tokens = balanceOf(address(this));
-
-        // return if dex is not set
-        if (dex == address(0)) return (0, 0);
-        try IRouter(dex).getAmountsOut(tokens, path) returns (uint256[] memory amounts) {
-            ethValue = amounts[1];
-            if (ethValue > _minSell) {
-                // In a case such as a lot of taxes being gained during bootstrapping, we don't want to immediately dump all tokens.
-                tokens = tokens * _minSell / ethValue;
-                // Try/catch because during bootstrapping selling won't be allowed.
-                try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-                    tokens, 0, address(this), treasury, block.timestamp
-                ) {} catch (bytes memory) {}
-            }
-        } catch (bytes memory) {}
-    }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
+
+    /**
+     * @notice Set taxes of a specific dex/address based on buy and sell.
+     * @dev This is onlyOwner rather than including treasury so that a team can renounce ownership
+     *      of this critical function while maintaining ownership of non-critical treasury functions.
+     * @param _dex Address of the dex that taxes are being added to when a transfer is made from/to it.
+     * @param _buyTax The tax for buys (transactions coming from the address). 1% == 100.
+     * @param _sellTax The tax for sells (transactions going to the address). 1% == 100.
+     *
+     */
+    function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external virtual override onlyOwner {
+        if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TokenErrors.TaxTooHigh();
+        buyTax[_dex] = _buyTax;
+        sellTax[_dex] = _sellTax;
+
+        // check already taxed
+        bool isTaxed = taxed[_dex];
+
+        if (_buyTax > 0 || _sellTax > 0) {
+            taxed[_dex] = true;
+            // If taxed, add to excluded supply.
+            if (!isTaxed) excludedSupply += _balances[_dex];
+        } else {
+            taxed[_dex] = false;
+            if (isTaxed) {
+                // If untaxed, remove from excluded supply.
+                excludedSupply -= _balances[_dex];
+            }
+        }
+    }
     /**
      * @notice Change the percent of taxes to be shared with users.
      * @param _newSharePercent New percent of taxes to be shared. 100 == 1%.
      *
      */
+
     function changeSharePercent(uint256 _newSharePercent) external onlyOwnerOrTreasury {
         if (_newSharePercent > _DIVISOR) revert TokenErrors.NewVaultPercentTooHigh();
         sharePercent = _newSharePercent;
