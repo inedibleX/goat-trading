@@ -21,8 +21,6 @@ import {IWETH} from "../interfaces/IWETH.sol";
  * @dev This contract is stateless and does not store any data
  * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
  */
-
- 
 contract GoatV1Router {
     using SafeERC20 for IERC20;
 
@@ -189,8 +187,6 @@ contract GoatV1Router {
         address token,
         address to,
         uint256 deadline
-
-
     ) public ensure(deadline) {
         IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, true);
@@ -208,8 +204,6 @@ contract GoatV1Router {
 
         IWETH(WETH).deposit{value: msg.value}();
         IERC20(WETH).safeTransfer(address(GoatV1Factory(FACTORY).getPool(path[1])), msg.value);
-
-
         _swapSupportingFeeOnTransferTokens(msg.value, amountOutMin, path[1], to, true);
     }
 

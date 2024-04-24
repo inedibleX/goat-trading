@@ -453,50 +453,49 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (_vestingUntil != _MAX_UINT32) {
             revert GoatErrors.ActionNotAllowed();
         }
-        GoatTypes.InitialLPInfo memory initialLpInfo = _initialLPInfo;
-        if (initialLpInfo.initialWethAdded != initParams.initialEth) {
-            revert GoatErrors.IncorrectTakeoverInitialEth();
-        }
+        GoatTypes.InitialLPInfo memory initialLpInfo;
 
         GoatTypes.LocalVariables_TakeOverPool memory localVars;
-        localVars.virtualEthOld = _virtualEth;
-
-        if (localVars.virtualEthOld < initParams.virtualEth) {
-            revert GoatErrors.NewVirtualEthGreaterThanOld();
-        }
-
-        address to = msg.sender;
-        localVars.bootstrapEthOld = _bootstrapEth;
-        localVars.initialTokenMatchOld = _initialTokenMatch;
-
-        (localVars.tokenAmountForPresaleOld, localVars.tokenAmountForAmmOld) = _tokenAmountsForLiquidityBootstrap(
-            localVars.virtualEthOld,
-            localVars.bootstrapEthOld,
-            initialLpInfo.initialWethAdded,
-            localVars.initialTokenMatchOld
-        );
-
-        // new token amount for bootstrap if no swaps would have occured
+        // new token amount for bootstrap
         (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
 
-        // team needs to add min 30% more tokens than the initial lp to take over
-        localVars.minTokenNeeded =
-            ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 13000) / 10000;
+        if (totalSupply() != 0) {
+            initialLpInfo = _initialLPInfo;
+            localVars.virtualEthOld = _virtualEth;
+            localVars.bootstrapEthOld = _bootstrapEth;
+            localVars.initialTokenMatchOld = _initialTokenMatch;
 
-        if ((localVars.tokenAmountForAmmNew + localVars.tokenAmountForPresaleNew) < localVars.minTokenNeeded) {
-            revert GoatErrors.InsufficientTakeoverTokenAmount();
+            if (initialLpInfo.initialWethAdded != initParams.initialEth) {
+                revert GoatErrors.IncorrectTakeoverInitialEth();
+            }
+
+            if (localVars.virtualEthOld < initParams.virtualEth) {
+                revert GoatErrors.NewVirtualEthGreaterThanOld();
+            }
+            (localVars.tokenAmountForPresaleOld, localVars.tokenAmountForAmmOld) = _tokenAmountsForLiquidityBootstrap(
+                localVars.virtualEthOld,
+                localVars.bootstrapEthOld,
+                initialLpInfo.initialWethAdded,
+                localVars.initialTokenMatchOld
+            );
+            // team needs to add min 30% more tokens than the initial lp to take over
+            localVars.minTokenNeeded =
+                ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 13000) / 10000;
+
+            if ((localVars.tokenAmountForAmmNew + localVars.tokenAmountForPresaleNew) < localVars.minTokenNeeded) {
+                revert GoatErrors.InsufficientTakeoverTokenAmount();
+            }
+            localVars.reserveEth = _reserveEth;
+
+            // Actual token amounts needed if the reserves have updated after initial lp mint
+            (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
+                initParams.virtualEth, initParams.bootstrapEth, localVars.reserveEth, initParams.initialTokenMatch
+            );
         }
 
-        localVars.reserveEth = _reserveEth;
-
-        // Actual token amounts needed if the reserves have updated after initial lp mint
-        (localVars.tokenAmountForPresaleNew, localVars.tokenAmountForAmmNew) = _tokenAmountsForLiquidityBootstrap(
-            initParams.virtualEth, initParams.bootstrapEth, localVars.reserveEth, initParams.initialTokenMatch
-        );
         localVars.reserveToken = _reserveToken;
-
         // amount of tokens transferred by the new team
         uint256 tokenAmountIn = IERC20(_token).balanceOf(address(this)) - localVars.reserveToken;
 
@@ -520,17 +519,21 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (wethAmountIn != localVars.reserveEth) {
             revert GoatErrors.IncorrectWethAmount();
         }
+        uint256 lpBalance = Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - MINIMUM_LIQUIDITY;
+        if (totalSupply() != 0) {
+            _handleTakeoverTransfers(
+                IERC20(_weth),
+                IERC20(_token),
+                initialLpInfo.liquidityProvider,
+                localVars.reserveEth,
+                localVars.reserveToken
+            );
+            _burn(initialLpInfo.liquidityProvider, balanceOf(initialLpInfo.liquidityProvider));
+        } else {
+            _mint(address(0), MINIMUM_LIQUIDITY);
+        }
 
-        _handleTakeoverTransfers(
-            IERC20(_weth), IERC20(_token), initialLpInfo.liquidityProvider, localVars.reserveEth, localVars.reserveToken
-        );
-
-        uint256 lpBalance = balanceOf(initialLpInfo.liquidityProvider);
-        _burn(initialLpInfo.liquidityProvider, lpBalance);
-
-        // new lp balance
-        lpBalance = Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - MINIMUM_LIQUIDITY;
-        _mint(to, lpBalance);
+        _mint(msg.sender, lpBalance);
 
         _updateStateAfterTakeover(
             initParams.virtualEth,
@@ -539,7 +542,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             wethAmountIn,
             tokenAmountIn,
             lpBalance,
-            to,
+            msg.sender,
             initParams.initialEth
         );
     }

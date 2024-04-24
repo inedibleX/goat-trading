@@ -1139,7 +1139,6 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
     }
 
-
     function testRevertPoolTakeOverWithNotEnoughTokenInitParam() public {
         GoatTypes.InitParams memory initParams;
         initParams.virtualEth = 10e18;
@@ -1224,6 +1223,71 @@ contract GoatExchangeTest is Test {
         vm.expectRevert(GoatErrors.IncorrectWethAmount.selector);
         pair.takeOverPool(initParams);
         vm.stopPrank();
+    }
+
+    function testPoolTakeoverRevertWithZeroLiquidityOnIncorrectTokenAmount() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = type(uint112).max;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = type(uint112).max;
+        initParams.bootstrapEth = type(uint112).max;
+
+        address pairAddress = factory.createPair(address(goat), initParams);
+
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+        uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
+
+        _fundMe(IERC20(address(goat)), pairAddress, bootstrapTokenAmt - 10);
+        pair = GoatV1Pair(pairAddress);
+
+        vm.startPrank(users.lp);
+        vm.expectRevert(GoatErrors.IncorrectTokenAmount.selector);
+        pair.takeOverPool(initParams);
+        vm.stopPrank();
+    }
+
+    function testPoolTakeoverWithZeroLiquidity() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.virtualEth = type(uint112).max;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = type(uint112).max;
+        initParams.bootstrapEth = type(uint112).max;
+
+        address pairAddress = factory.createPair(address(goat), initParams);
+
+        initParams.virtualEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.bootstrapEth = 10e18;
+
+        (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = GoatLibrary.getTokenAmountsForPresaleAndAmm(
+            initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
+        );
+        uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
+
+        _fundMe(IERC20(address(goat)), pairAddress, bootstrapTokenAmt);
+        pair = GoatV1Pair(pairAddress);
+
+        assertEq(pair.totalSupply(), 0);
+
+        vm.startPrank(users.lp);
+        pair.takeOverPool(initParams);
+        vm.stopPrank();
+
+        uint256 expectedLpBalance =
+            Math.sqrt(uint256(initParams.virtualEth) * initParams.initialTokenMatch) - MINIMUM_LIQUIDITY;
+
+        assertEq(pair.balanceOf(address(0)), MINIMUM_LIQUIDITY);
+
+        uint256 lpPoolBalance = pair.balanceOf(users.lp);
+        assertEq(lpPoolBalance, expectedLpBalance);
     }
 
     function testPoolTakeOverSuccessWithExactly30PercentExtraTokens() public {
