@@ -5,6 +5,7 @@ contract GoatErrors {
     error ActionNotAllowed();
     error BurnLimitExceeded();
     error CannnotPairWithBaseAsset();
+    error CannotWithdrawFeesForPair();
     error EthTransferFailed();
     error Expired();
     error FailedToSendEther();

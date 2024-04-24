@@ -614,6 +614,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * - The `_pendingLiquidityFees` state variable is decreased by the amount of fees withdrawn.
      */
     function withdrawFees(address to) external {
+        if (to == address(this)) revert GoatErrors.CannotWithdrawFeesForPair();
         uint256 totalFees = _earned(to, feesPerTokenStored);
 
         if (totalFees != 0) {
