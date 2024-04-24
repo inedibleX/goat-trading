@@ -99,10 +99,10 @@ contract DividendTokenTest is BaseTokenTest {
         dividend.addDividend{value: reward}(dripInSeconds);
         vm.stopPrank();
 
-        assertEq(dividend.rewardRate(), reward / dripInSeconds);
-        assertEq(dividend.lastUpdateTime(), block.timestamp);
-        assertEq(dividend.rewardPerTokenStored(), 0);
-        assertEq(dividend.periodFinish(), block.timestamp + dripInSeconds);
+        assertEq(dividend.rewardRate(), reward / dripInSeconds, "reward rate is not correct");
+        assertEq(dividend.lastUpdateTime(), block.timestamp, "last update time should be block.timestamp");
+        assertEq(dividend.rewardPerTokenStored(), 0, "Expected reward per token stored to be 0");
+        assertEq(dividend.periodFinish(), block.timestamp + dripInSeconds, "period finish is not correct");
 
         vm.warp(block.timestamp + dripInSeconds / 2);
 
@@ -114,7 +114,7 @@ contract DividendTokenTest is BaseTokenTest {
 
         assertApproxEqAbs(dividend.rewardRate(), newRate, 1);
         assertEq(dividend.lastUpdateTime(), block.timestamp);
-        assertEq(dividend.rewardPerTokenStored(), 0);
+        assertGt(dividend.rewardPerTokenStored(), 1e10);
         assertEq(dividend.periodFinish(), block.timestamp + dripInSeconds);
     }
 
