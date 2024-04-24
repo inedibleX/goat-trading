@@ -72,7 +72,7 @@ contract TokenFactory3 {
         TokenType _type,
         uint256 _percent,
         GoatTypes.InitParams memory initParams
-    ) external payable returns (address tokenAddress, address pool) {
+    ) external returns (address tokenAddress, address pool) {
         // Create the initial token.
 
         if (initParams.initialEth != 0) {
