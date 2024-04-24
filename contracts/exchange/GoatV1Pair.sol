@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
 // library imports
@@ -16,6 +16,14 @@ import {GoatV1ERC20} from "./GoatV1ERC20.sol";
 // interfaces
 import {IGoatV1Factory} from "../interfaces/IGoatV1Factory.sol";
 
+/**
+ * @title Goat Trading V1 Pair
+ * @notice Main contract for Goat Trading V1 and should be called from contract with safety checks.
+ * @dev This contract is a pair of two tokens that are traded against each other.
+ *  The pair is deployed by the factory contract.
+ * Mint, Burn, Swap, and Takeover are handled in this contract.
+ * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
+ */
 contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
