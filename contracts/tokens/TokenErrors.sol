@@ -4,13 +4,13 @@ pragma solidity 0.8.19;
 contract TokenErrors {
     error BurnPercentTooHigh();
     error NewBurnPercentTooHigh();
+    error NewPotPercentTooHigh();
+    error NewVaultPercentTooHigh();
     error OnlyBeneficiaryOrOwner();
     error OnlyBeneficiaryOrRewarder();
     error OnlyLotteryMaster();
+    error OnlyOwnerOrTreasury();
     error OnlyTeam();
     error ProvidedRewardsTooHigh();
-    error NewPotPercentTooHigh();
-    error NewVaultPercentTooHigh();
     error TaxTooHigh();
-    error OnlyOwnerOrTreasury();
 }

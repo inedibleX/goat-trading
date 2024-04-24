@@ -35,11 +35,11 @@ interface IERC20Errors {
  * applications.
  */
 abstract contract ERC20 is Context, IERC20, IERC20Metadata, IERC20Errors {
-    mapping(address account => uint256) public _balances;
+    mapping(address account => uint256) internal _balances;
 
     mapping(address account => mapping(address spender => uint256)) private _allowances;
 
-    uint256 public _totalSupply;
+    uint256 internal _totalSupply;
 
     string private _name;
     string private _symbol;
