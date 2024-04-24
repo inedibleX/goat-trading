@@ -183,6 +183,9 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function changeDex(address _dexAddress) external onlyOwnerOrTreasury {
+        if (dex != address(0)) {
+            IERC20(address(this)).approve(dex, 0);
+        }
         dex = _dexAddress;
         IERC20(address(this)).approve(_dexAddress, type(uint256).max);
     }
