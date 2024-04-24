@@ -189,7 +189,7 @@ contract GoatV1Router {
         uint256 deadline
     ) public ensure(deadline) {
         IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
-        _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, true);
+        _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, true);
     }
 
     function swapETHForExactTokensSupportingFeeOnTransferTokens(
@@ -204,7 +204,7 @@ contract GoatV1Router {
 
         IWETH(WETH).deposit{value: msg.value}();
         IERC20(WETH).safeTransfer(address(GoatV1Factory(FACTORY).getPool(path[1])), msg.value);
-        _swapSupportingFeeOnTransferTokens(path[1], to, amountOutMin, true);
+        _swapSupportingFeeOnTransferTokens(msg.value, amountOutMin, path[1], to, true);
     }
 
     function swapExactTokensForWethSupportingFeeOnTransferTokens(
@@ -214,8 +214,11 @@ contract GoatV1Router {
         address to,
         uint256 deadline
     ) public ensure(deadline) {
+        uint256 poolBalBefore = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
         IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
-        _swapSupportingFeeOnTransferTokens(token, to, amountOutMin, false);
+        uint256 poolBalAfter = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
+        amountIn = poolBalAfter - poolBalBefore;
+        _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, false);
     }
 
     /* ----------------------------- SWAP FUNCTIONS  ----------------------------- */
@@ -313,16 +316,22 @@ contract GoatV1Router {
     }
 
     /* --------------------------- INTERNAL FUNCTIONS --------------------------- */
-    function _swapSupportingFeeOnTransferTokens(address token, address to, uint256 amountOutMin, bool isWethIn)
-        internal
-    {
+    function _swapSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address token,
+        address to,
+        bool isWethIn
+    ) internal {
         GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
         // We need a real reserves here even in presale, we use getStateInfoAmm
-        (uint112 reserveWeth, uint112 reserveToken) = pair.getStateInfoAmm();
-
-        uint112 reserveInput = isWethIn ? reserveWeth : reserveToken;
-        address input = isWethIn ? WETH : token;
-        uint256 amountInput = IERC20(input).balanceOf(address(pair)) - reserveInput;
+        (, uint112 reserveToken) = pair.getStateInfoAmm();
+        uint256 amountInput;
+        if (isWethIn) {
+            amountInput = amountIn;
+        } else {
+            amountInput = IERC20(token).balanceOf(address(pair)) - reserveToken;
+        }
 
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
