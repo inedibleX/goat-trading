@@ -228,7 +228,7 @@ library GoatLibrary {
         uint32 vestingUntil
     ) internal pure returns (uint256 amountTokenIn) {
         // scale by 10000 to avoid rounding errors
-        uint256 actualWethOut = ((wethAmountOut * 10000) / 9901);
+        uint256 actualWethOut = ((wethAmountOut * 10000) / 9901) + 1;
         if (wethAmountOut == 0) revert GoatErrors.InsufficientOutputAmount();
         if (actualWethOut > reserveEth) revert GoatErrors.InsufficientLiquidity();
         uint256 numerator;
@@ -242,7 +242,7 @@ library GoatLibrary {
             numerator = actualWethOut * reserveToken;
             denominator = reserveEth * 10000 - actualWethOut;
         }
-        amountTokenIn = numerator / denominator;
+        amountTokenIn = (numerator / denominator) + 1;
     }
 
     function getWethAmountIn(
@@ -302,6 +302,6 @@ library GoatLibrary {
     {
         uint256 numerator = reserveWeth * tokenAmountOut;
         uint256 denominator = (reserveToken - tokenAmountOut);
-        amountWethIn = (numerator / denominator);
+        amountWethIn = (numerator / denominator) + 1;
     }
 }

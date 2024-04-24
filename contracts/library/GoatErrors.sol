@@ -7,6 +7,7 @@ contract GoatErrors {
     error CannnotPairWithBaseAsset();
     error CannotWithdrawFeesForPair();
     error EthTransferFailed();
+    error ExcessiveInputAmount();
     error Expired();
     error FailedToSendEther();
     error Forbidden();
@@ -27,6 +28,7 @@ contract GoatErrors {
     error InsufficientWethAmount();
     error InvalidEthAmount();
     error InvalidParams();
+    error InvalidPath();
     error KInvariant();
     error LiquidityCooldownActive();
     error LiquidityLocked();
