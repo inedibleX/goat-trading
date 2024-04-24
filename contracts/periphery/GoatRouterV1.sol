@@ -190,6 +190,7 @@ contract GoatV1Router {
         address to,
         uint256 deadline
 
+
     ) public ensure(deadline) {
         IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, true);
@@ -200,7 +201,6 @@ contract GoatV1Router {
         address[] calldata path,
         address to,
         uint256 deadline
-
     ) external payable ensure(deadline) {
         if (path.length != 2 || path[0] != WETH) {
             revert GoatErrors.InvalidPath();
@@ -208,6 +208,7 @@ contract GoatV1Router {
 
         IWETH(WETH).deposit{value: msg.value}();
         IERC20(WETH).safeTransfer(address(GoatV1Factory(FACTORY).getPool(path[1])), msg.value);
+
 
         _swapSupportingFeeOnTransferTokens(msg.value, amountOutMin, path[1], to, true);
     }
@@ -218,7 +219,6 @@ contract GoatV1Router {
         address token,
         address to,
         uint256 deadline
-
     ) public ensure(deadline) {
         uint256 poolBalBefore = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
         IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
@@ -263,7 +263,6 @@ contract GoatV1Router {
             amounts[1] = swapExactWethForTokens(amounts[0], amountOut, path[1], to, deadline);
         } else {
             amounts[1] = swapExactTokensForWeth(amounts[0], amountOut, path[0], to, deadline);
-
         }
     }
 
@@ -305,7 +304,6 @@ contract GoatV1Router {
         }
         GoatV1Pair pair;
         (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
-
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
         pair.swap(0, amountWethOut, to);
     }
@@ -324,7 +322,6 @@ contract GoatV1Router {
     }
 
     /* --------------------------- INTERNAL FUNCTIONS --------------------------- */
-
     function _swapSupportingFeeOnTransferTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -341,7 +338,6 @@ contract GoatV1Router {
         } else {
             amountInput = IERC20(token).balanceOf(address(pair)) - reserveToken;
         }
-
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
             : _getAmountWethOut(amountInput, amountOutMin, token);

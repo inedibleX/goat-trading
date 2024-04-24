@@ -37,6 +37,7 @@ contract GoatErrors {
     error MevDetected2();
     error MultipleOutputAmounts();
     error NotEnoughBalance();
+    error NewVirtualEthGreaterThanOld();
     error OnlyGov();
     error PairExists();
     error PoolDoesNotExist();

@@ -431,12 +431,12 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * @notice Allows a team to take over a pool from malicious actors.
      * @dev Prevents malicious actors from griefing the pool by setting unfavorable
      *   initial conditions. It requires the new team to match the pool reserves of
-     *   WETH amount and exceed their token contribution by at least 10%.
+     *   WETH amount and exceed their token contribution by at least 30%.
      *   This function also resets the pool's initial liquidity parameters.
      * @param initParams The new initial parameters for the pool.
      * Requirements:
      * - Pool must be in presale period.
-     * - The `tokenAmount` must be at least 10% greater and equal to bootstrap token needed for new params.
+     * - The `tokenAmount` must be at least 30% greater and equal to bootstrap token needed for new params.
      * - Tokens must be transferred to the pool before calling this function.
      * Reverts:
      * - If the pool has already transitioned to an AMM.
@@ -453,13 +453,19 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         if (_vestingUntil != _MAX_UINT32) {
             revert GoatErrors.ActionNotAllowed();
         }
-
         GoatTypes.InitialLPInfo memory initialLpInfo = _initialLPInfo;
-        if (initialLpInfo.initialWethAdded != initParams.initialEth) revert GoatErrors.IncorrectTakeoverInitialEth();
+        if (initialLpInfo.initialWethAdded != initParams.initialEth) {
+            revert GoatErrors.IncorrectTakeoverInitialEth();
+        }
 
         GoatTypes.LocalVariables_TakeOverPool memory localVars;
-        address to = msg.sender;
         localVars.virtualEthOld = _virtualEth;
+
+        if (localVars.virtualEthOld < initParams.virtualEth) {
+            revert GoatErrors.NewVirtualEthGreaterThanOld();
+        }
+
+        address to = msg.sender;
         localVars.bootstrapEthOld = _bootstrapEth;
         localVars.initialTokenMatchOld = _initialTokenMatch;
 
@@ -475,9 +481,9 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
 
-        // team needs to add min 10% more tokens than the initial lp to take over
+        // team needs to add min 30% more tokens than the initial lp to take over
         localVars.minTokenNeeded =
-            ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 11000) / 10000;
+            ((localVars.tokenAmountForPresaleOld + localVars.tokenAmountForAmmOld) * 13000) / 10000;
 
         if ((localVars.tokenAmountForAmmNew + localVars.tokenAmountForPresaleNew) < localVars.minTokenNeeded) {
             revert GoatErrors.InsufficientTakeoverTokenAmount();
@@ -511,7 +517,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         uint256 wethAmountIn = IERC20(_weth).balanceOf(address(this)) - localVars.reserveEth
             - localVars.pendingLiquidityFees - localVars.pendingProtocolFees;
 
-        if (wethAmountIn < localVars.reserveEth) {
+        if (wethAmountIn != localVars.reserveEth) {
             revert GoatErrors.IncorrectWethAmount();
         }
 
@@ -580,9 +586,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
     /**
      * @notice Handles asset transfers during a pool takeover.
-     * @dev Transfers WETH and tokens back to the initial liquidity provider (lp) with a penalty
-     *      for potential frontrunners. This mechanism aims to discourage malicious frontrunning by
-     *      applying 5% penalty to the WETH amount being transferred.
+     * @dev Transfers WETH and tokens back to the initial liquidity provider (lp)
      * @param weth The WETH token contract.
      * @param token The token contract associated with the pool.
      * @param lp The address of the initial liquidity provider to receive the transferred assets.
@@ -593,14 +597,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         internal
     {
         if (wethAmount != 0) {
-            // Malicious frontrunners can create cheaper pools buy tokens cheap
-            // and make it costly for the teams to take over. So, we need to have penalty
-            // for the frontrunner.
-            uint256 penalty = (wethAmount * 5) / 100;
-            // actual amount to transfer
-            wethAmount -= penalty;
             weth.safeTransfer(lp, wethAmount);
-            weth.safeTransfer(IGoatV1Factory(factory).treasury(), penalty);
         }
         token.safeTransfer(lp, tokenAmount);
     }
