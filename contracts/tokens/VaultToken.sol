@@ -39,6 +39,7 @@ contract VaultToken is TaxToken {
      */
     function redeem(uint256 _amount) external {
         uint256 ethOwed = _amount * vaultEth / totalSupply();
+        vaultEth -= ethOwed;
         _burn(msg.sender, _amount);
         payable(msg.sender).transfer(ethOwed);
     }

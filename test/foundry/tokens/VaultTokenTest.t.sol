@@ -249,11 +249,19 @@ contract VaultTokenTest is BaseTokenTest {
         uint256 expectedReturn = vaultEthBalAfter * whaleTokenBalBefore / totalSupplyBefore;
         uint256 whaleEthBalBefore = users.whale.balance;
 
+        vaultEthBalBefore = vault.vaultEth();
         vm.startPrank(users.whale);
         vault.redeem(whaleTokenBalBefore);
         vm.stopPrank();
+        vaultEthBalAfter = vault.vaultEth();
 
         uint256 whaleEthBalAfter = users.whale.balance;
+        // should update the vault eth by difference of whale balance
+        assertEq(
+            vaultEthBalBefore - vaultEthBalAfter,
+            whaleEthBalAfter - whaleEthBalBefore,
+            "Vault eth should decrease by amount redeemed by the user"
+        );
         assertApproxEqRel(whaleEthBalAfter - whaleEthBalBefore, expectedReturn, 1);
 
         whaleTokenBalance = vault.balanceOf(users.whale);
