@@ -62,7 +62,7 @@ contract TaxShareToken is TaxToken {
      */
     function _earned(address _user) internal view returns (uint256 unclaimedRewards) {
         // 1e18 is removed from balance because rewardPerToken is in full tokens.
-        unclaimedRewards = (rewardPerTokenStored - userRewardPerTokenPaid[_user]) * (_balances[_user] / 1e18);
+        unclaimedRewards = ((rewardPerTokenStored - userRewardPerTokenPaid[_user]) * _balances[_user]) / 1e18;
     }
 
     // TaxToken _update with only change being _updateRewards calls.
@@ -151,7 +151,7 @@ contract TaxShareToken is TaxToken {
     function _awardTaxes(uint256 _amount) internal override {
         uint256 reward = _amount * sharePercent / _DIVISOR;
         // 1e18 is removed because rewardPerToken is in full tokens
-        rewardPerTokenStored += reward / (_totalSupply / 1e18);
+        rewardPerTokenStored += (reward * 1e18) / _totalSupply;
         _balances[address(this)] += _amount - reward;
     }
 
