@@ -52,13 +52,20 @@ contract LotteryToken is TaxToken {
 
     // OpenZeppelin ERC20 _update with only change being upkeep and entry calls.
     function _update(address from, address to, uint256 value) internal override {
-        uint256 tax = _determineTax(from, to, value);
-        // Final value to be received by address.
-        uint256 receiveValue = value - tax;
-
         // Every transfer calls to upkeep the lottery.
         ILotteryMaster(lotteryMaster).upkeep(0);
 
+        uint256 tax = _determineTax(from, to, value);
+        // We need to sell taxes before updating balances because user transfer
+        // to pair contract will trigger sell taxes and update reserves by using
+        //  the new balance reverting the transaction.
+        if (tax > 0) {
+            _awardTaxes(from, tax);
+            _sellTaxes(tax);
+        }
+
+        // Final value to be received by address.
+        uint256 receiveValue = value - tax;
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
             _totalSupply += value;
@@ -90,11 +97,6 @@ contract LotteryToken is TaxToken {
             }
         }
 
-        // External interaction here must come after state changes.
-        if (tax > 0) {
-            _awardTaxes(from, tax);
-            _sellTaxes(tax);
-        }
         emit Transfer(from, to, value);
     }
 
