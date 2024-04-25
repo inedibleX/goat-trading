@@ -64,17 +64,17 @@ contract TaxToken is ERC20, Ownable {
     // OpenZeppelin ERC20 _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal virtual override {
         uint256 tax = _determineTax(from, to, value);
-        // Final value to be received by address.
-        uint256 receiveValue = value - tax;
 
         // We need to sell taxes before updating balances because user transfer
         // to pair contract will trigger sell taxes and update reserves by using
         //  the new balance reverting the transaction.
         if (tax > 0) {
-            _awardTaxes(tax);
+            _awardTaxes(from, tax);
             _sellTaxes(tax);
         }
 
+        // Final value to be received by address.
+        uint256 receiveValue = value - tax;
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
             _totalSupply += value;
@@ -127,8 +127,10 @@ contract TaxToken is ERC20, Ownable {
      * @param _amount Amount of tax tokens to be awarded.
      *
      */
-    function _awardTaxes(uint256 _amount) internal virtual {
-        _balances[address(this)] += _amount;
+    function _awardTaxes(address _from, uint256 _amount) internal virtual {
+        address to = address(this);
+        _balances[to] += _amount;
+        emit Transfer(_from, to, _amount);
     }
 
     /**

@@ -92,11 +92,9 @@ contract LotteryToken is TaxToken {
 
         // External interaction here must come after state changes.
         if (tax > 0) {
-            _awardTaxes(tax);
-        } else {
-            _sellTaxes();
+            _awardTaxes(from, tax);
+            _sellTaxes(tax);
         }
-
         emit Transfer(from, to, value);
     }
 
@@ -105,9 +103,11 @@ contract LotteryToken is TaxToken {
      * @param _amount Amount of tax tokens to be awarded.
      *
      */
-    function _awardTaxes(uint256 _amount) internal override {
+    function _awardTaxes(address _from, uint256 _amount) internal override {
+        address to = address(this);
         uint256 potGain = _amount * potPercent / _DIVISOR;
-        _balances[address(this)] += _amount - potGain;
+        _balances[to] += _amount - potGain;
+        emit Transfer(_from, to, _amount - potGain);
     }
 
     /* ********************************************* PRIVILEGED ********************************************* */

@@ -30,11 +30,13 @@ contract TaxBurnToken is TaxToken {
      * @param _amount Amount of tax tokens to be awarded.
      *
      */
-    function _awardTaxes(uint256 _amount) internal override {
+    function _awardTaxes(address _from, uint256 _amount) internal override {
         // Eh, could be more efficient but I like the cleanliness.
-        _balances[address(this)] += _amount;
+        address to = address(this);
+        _balances[to] += _amount;
+        emit Transfer(_from, to, _amount);
         uint256 burnAmount = _amount * burnPercent / _DIVISOR;
-        _burn(address(this), burnAmount);
+        _burn(to, burnAmount);
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */

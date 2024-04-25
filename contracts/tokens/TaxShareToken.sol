@@ -68,6 +68,14 @@ contract TaxShareToken is TaxToken {
     // TaxToken _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal override {
         uint256 tax = _determineTax(from, to, value);
+
+        // We need to sell taxes before updating balances because user transfer
+        // to pair contract will trigger sell taxes and update reserves by using
+        //  the new balance reverting the transaction.
+        if (tax > 0) {
+            _awardTaxes(from, tax);
+            _sellTaxes(tax);
+        }
         // Final value to be received by address.
         uint256 receiveValue = value - tax;
 
@@ -101,12 +109,6 @@ contract TaxShareToken is TaxToken {
                 // Overflow not possible: balance + value is at most totalSupply, which we know fits into a uint256.
                 _balances[to] += receiveValue;
             }
-        }
-
-        // External interaction here must come after state changes.
-        if (tax > 0) {
-            _awardTaxes(tax);
-            _sellTaxes(tax);
         }
 
         emit Transfer(from, to, value);
@@ -148,11 +150,15 @@ contract TaxShareToken is TaxToken {
      * @param _amount Amount of tax tokens to be awarded.
      *
      */
-    function _awardTaxes(uint256 _amount) internal override {
+    function _awardTaxes(address _from, uint256 _amount) internal override {
         uint256 reward = _amount * sharePercent / _DIVISOR;
         // 1e18 is removed because rewardPerToken is in full tokens
         rewardPerTokenStored += (reward * 1e18) / _totalSupply;
-        _balances[address(this)] += _amount - reward;
+        address to = address(this);
+        _balances[to] += _amount - reward;
+
+        // @note not sure whether to emit the full amount or just token balance change.
+        emit Transfer(_from, to, _amount - reward);
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
