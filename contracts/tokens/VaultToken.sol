@@ -58,6 +58,10 @@ contract VaultToken is TaxToken {
      *
      */
     function _sellTaxes(uint256 tokens) internal override {
+        uint256 balance = _balances[address(this)];
+        if (balance < tokens) {
+            tokens = balance;
+        }
         // transfer tax to treasury if dex is not set
         if (dex == address(0)) {
             // transfer tax tokens to treasury if no dex is set

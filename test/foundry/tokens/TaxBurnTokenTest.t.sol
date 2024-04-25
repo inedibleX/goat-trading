@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {BaseTokenTest, TokenFactory2, TaxBurnToken} from "./BaseTokenTest.t.sol";
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
+import {console2} from "forge-std/console2.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
@@ -101,7 +102,9 @@ contract TaxBurnTokenTest is BaseTokenTest {
         // fund bob with some weth
         weth.transfer(users.bob, 20e18);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(taxburn), users.whale, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
         vm.stopPrank();
 
         // 1% tax on buy
@@ -110,7 +113,7 @@ contract TaxBurnTokenTest is BaseTokenTest {
         uint256 taxBurned = taxCollected / 2;
 
         // tax for treasury should be collected in token contract address.
-        assertEq(taxburn.balanceOf(address(taxburn)), taxCollected - taxBurned);
+        assertEq(taxburn.balanceOf(users.treasury), taxCollected - taxBurned);
         uint256 totalSupplyAfter = taxburn.totalSupply();
 
         assertEq(totalSupplyAfter, totalSupplyBefore - taxBurned);

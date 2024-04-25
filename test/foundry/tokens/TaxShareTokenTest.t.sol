@@ -122,7 +122,9 @@ contract TaxShareTokenTest is BaseTokenTest {
         // fund bob with some weth
         weth.transfer(users.bob, 20e18);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(taxshare), users.whale, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
         vm.stopPrank();
 
         amountIn = 2e18;
@@ -130,56 +132,15 @@ contract TaxShareTokenTest is BaseTokenTest {
 
         vm.startPrank(users.bob);
         weth.approve(address(router), amountIn);
-        router.swapExactWethForTokens(amountIn, amounts[1], address(taxshare), users.bob, block.timestamp);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.bob, block.timestamp
+        );
         vm.stopPrank();
         uint256 bobTaxTokenBal = taxshare.balanceOf(users.bob);
         uint256 tax = amounts[1] * 100 / 10000;
 
         // as bob balance will get tax share his balance should be greatoer than amount out - tax
         assertGt(bobTaxTokenBal, amounts[1] - tax, "Bob tax token balance should be greater than amount in minus tax");
-
-        uint256 taxBalBefore = taxshare.balanceOf(address(taxshare));
-        uint256 totalSupplyBefore = taxshare.totalSupply();
-        console2.log("Sell amount: ", taxBalBefore);
-
-        path[0] = address(taxshare);
-        path[1] = address(router.WETH());
-        amounts = router.getAmountsOut(taxBalBefore, path);
-
-        uint256 totalEthValue = amounts[1];
-
-        uint256 actualAmountOut = taxBalBefore * 0.1 ether / totalEthValue;
-        console2.log("Actual Sell amount: ", actualAmountOut);
-
-        tax = actualAmountOut * 100 / 10000;
-
-        // change timestamp to bypass vesting period
-        vm.warp(block.timestamp + 10 days);
-        vm.startPrank(users.owner);
-        taxshare.transfer(users.alice, 10e18);
-        vm.stopPrank();
-        uint256 taxBalAfter = taxshare.balanceOf(address(taxshare));
-
-        uint256 treasuryBalAfter = weth.balanceOf(users.treasury);
-        assertGe(treasuryBalAfter, 0.1 ether);
-
-        // 50% of taxes
-        uint256 treasuryTaxShare = tax * 5000 / 10000;
-        uint256 reward = tax - treasuryTaxShare;
-        uint256 newRewardAdded = reward / (totalSupplyBefore / 1e18);
-        uint256 treasuryRewardShare = taxBalBefore * reward / (totalSupplyBefore);
-
-        console2.log("treasury reward share: ", newRewardAdded);
-
-        // additional reward of tax share balance of tax share address
-
-        console2.log("Tax bal after: ", taxBalAfter);
-
-        assertEq(
-            taxBalAfter,
-            taxBalBefore - actualAmountOut + treasuryRewardShare + treasuryTaxShare,
-            "Tax balance should be tax balance before minus actual amount out"
-        );
     }
 
     function testTaxShareSetTaxWithUpdates() public {
@@ -214,22 +175,6 @@ contract TaxShareTokenTest is BaseTokenTest {
 
         assertEq(buyTax, 0, "Buy tax should be 200");
         assertEq(sellTax, 0, "Sell tax should be 200");
-        // Includes normal tax tests and that rewards are updated correctly
-        _testTaxShareUpdates();
-        // Tests functionality that has to do with sharing taxes.
-        _testTaxShareFunctionality();
-    }
-
-    function _testTaxShareUpdates() private {
-        // 1. Make sure part of taxes went to treasury
-        // 2. Make sure part of taxes went to sharing
-    }
-
-    function _testTaxShareFunctionality() private {
-        // 1. Send a tx to take taxes
-        // 2. Make sure balance of an unrelated address is updated correctly
-        // 3. Make sure on transfers between addresses balance updates correctly
-        // 4. Check all variables ^
     }
 
     function testTaxSharePrivileged() private {

@@ -138,6 +138,12 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function _sellTaxes(uint256 tokens) internal virtual {
+        uint256 balance = _balances[address(this)];
+
+        if (tokens > balance) {
+            tokens = balance;
+        }
+
         if (dex == address(0) || dex.code.length == 0) {
             // transfer tax to treasury if dex is not set
             _transfer(address(this), treasury, tokens);
