@@ -312,6 +312,36 @@ contract TaxTokenTest is BaseTokenTest {
         assertEq(aliceBalAfter - aliceBalBefore, bobBalAfter, "Alice balance diff should be bob's balance");
     }
 
+    function testContractLockOnDexAddressCodeSizeZero() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.transferTreasury(users.treasury);
+        // set dex to an address with code size 0
+        plainTax.changeDex(users.dex);
+        vm.stopPrank();
+
+        address[] memory path = new address[](2);
+        path[0] = address(router.WETH());
+        path[1] = address(plainTax);
+        uint256 amountIn = 12e18;
+        uint256[] memory amounts = router.getAmountsOut(amountIn, path);
+        vm.startPrank(users.whale);
+        // fund bob with some weth
+        weth.transfer(users.bob, 20e18);
+        weth.approve(address(router), amountIn);
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amountIn, amounts[1], path, users.whale, block.timestamp
+        );
+        vm.stopPrank();
+    }
+
     function testSellTaxesSuccessWithNecessaryUpdates() public {
         GoatTypes.InitParams memory initParams;
         initParams.bootstrapEth = 10e18;
