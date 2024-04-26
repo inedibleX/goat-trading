@@ -68,7 +68,6 @@ contract TaxShareToken is TaxToken {
     // TaxToken _update with only change being _updateRewards calls.
     function _update(address from, address to, uint256 value) internal override {
         // TaxShare: Add rewards to both user token balance.
-        // Add more in case it's a dex?
         _updateRewards(from, to);
         // Update excluded supply.
         _updateExcluded(from, to, value);
@@ -93,15 +92,15 @@ contract TaxShareToken is TaxToken {
             userRewardPerTokenPaid[_to] = rewardPerTokenStored;
         }
     }
+
     /**
-     * @notice Update the amount of tokens excluded from reward calculations.
-     *         Includes excluding 0, this, and taxed.
+     * @notice Update the amount of tokens excluded from reward calculations. Includes 
+     *         address(this) and taxed. Address(0) inherently excluded because totalSupply lowers.
      * @param _from The address sending tokens.
      * @param _to The address receiving tokens.
      * @param _value The amount of tokens being sent.
      *
      */
-
     function _updateExcluded(address _from, address _to, uint256 _value) internal {
         if (_to == address(this) || taxed[_to]) excludedSupply += _value;
         if (_from == address(this) || taxed[_from]) excludedSupply -= _value;

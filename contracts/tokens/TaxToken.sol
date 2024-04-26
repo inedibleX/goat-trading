@@ -113,6 +113,8 @@ contract TaxToken is ERC20, Ownable {
      *
      */
     function _determineTax(address _from, address _to, uint256 _value) internal view returns (uint256 taxAmount) {
+        if (_from == address(this)) return 0;
+        
         uint256 fromTax = buyTax[_from];
         uint256 toTax = sellTax[_to];
 
@@ -144,7 +146,7 @@ contract TaxToken is ERC20, Ownable {
             tokens = balance;
         }
 
-        if (dex == address(0) || dex.code.length == 0) {
+        if (dex.code.length == 0) {
             // transfer tax to treasury if dex is not set
             _transfer(address(this), treasury, tokens);
             return;
