@@ -112,8 +112,8 @@ contract TaxBurnTokenTest is BaseTokenTest {
         // as tax share for burn is 50%
         uint256 taxBurned = taxCollected / 2;
 
-        // tax for treasury should be collected in token contract address.
-        assertEq(taxburn.balanceOf(users.treasury), taxCollected - taxBurned);
+        // tax should be stored in the token itself
+        assertEq(taxburn.balanceOf(address(taxburn)), taxCollected - taxBurned);
         uint256 totalSupplyAfter = taxburn.totalSupply();
 
         assertEq(totalSupplyAfter, totalSupplyBefore - taxBurned);

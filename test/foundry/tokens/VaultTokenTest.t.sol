@@ -111,9 +111,9 @@ contract VaultTokenTest is BaseTokenTest {
         );
         vm.stopPrank();
         assertEq(
-            vault.balanceOf(users.treasury),
+            vault.balanceOf(address(vault)),
             amounts[1] * 100 / 10000,
-            "treasury should collect the taxes on tax sell fail"
+            "vault should collect the taxes on tax sell fail of buy txn"
         );
 
         amountIn = 2e18;
@@ -194,9 +194,9 @@ contract VaultTokenTest is BaseTokenTest {
         );
         vm.stopPrank();
         assertEq(
-            vault.balanceOf(users.treasury),
+            vault.balanceOf(address(vault)),
             amounts[1] * 100 / 10000,
-            "treasury should collect the taxes on tax sell fail"
+            "vault should collect the taxes on tax sell fail of buy txn"
         );
 
         amountIn = 2e18;

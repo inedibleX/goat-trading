@@ -70,7 +70,9 @@ contract TaxToken is ERC20, Ownable {
         //  the new balance reverting the transaction.
         if (tax > 0) {
             _awardTaxes(from, tax);
-            _sellTaxes(tax);
+            if (!taxed[from]) {
+                _sellTaxes(tax);
+            }
         }
 
         // Final value to be received by address.
@@ -114,7 +116,7 @@ contract TaxToken is ERC20, Ownable {
      */
     function _determineTax(address _from, address _to, uint256 _value) internal view returns (uint256 taxAmount) {
         if (_from == address(this)) return 0;
-        
+
         uint256 fromTax = buyTax[_from];
         uint256 toTax = sellTax[_to];
 
@@ -160,6 +162,7 @@ contract TaxToken is ERC20, Ownable {
         try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
             tokens, 0, address(this), treasury, block.timestamp
         ) {} catch (bytes memory) {
+            // if pool is not in presale don't transfer tax tokens to the treasury
             // transfer tax tokens to treasury sell of tax tokens fail
             _transfer(address(this), treasury, tokens);
         }

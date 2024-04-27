@@ -243,8 +243,10 @@ contract TaxTokenTest is BaseTokenTest {
             transferAmount - expectedTax,
             "Dex balance should be transfer amount minus tax"
         );
-        uint256 treasuryBal = plainTax.balanceOf(users.treasury);
-        assertEq(treasuryBal, expectedTax, "Treasury balance should be tax amount");
+
+        // as the the above transfer txn is assumed as sell txn so treasury should get the tax amount
+        uint256 taxCollectedbal = plainTax.balanceOf(users.treasury);
+        assertEq(taxCollectedbal, expectedTax, "Treasury should hold the taxes of failed sell txn");
         vm.warp(block.timestamp + 2);
         transferAmount = 5e18;
         vm.startPrank(users.dex);
@@ -259,7 +261,8 @@ contract TaxTokenTest is BaseTokenTest {
             "Dex balance should be transfer amount minus tax"
         );
 
-        assertEq(plainTax.balanceOf(users.treasury) - treasuryBal, expectedTax, "Treasury balance should be tax amount");
+        // as the last transfer txn is assumed as buy txn the tax should remain in contract
+        assertEq(plainTax.balanceOf(address(plainTax)), expectedTax, "Contract should hold the taxes of buy txn");
     }
 
     function testPlainTaxOnTransfers() public {
@@ -364,7 +367,7 @@ contract TaxTokenTest is BaseTokenTest {
         uint256 pairTokenBalBefore = plainTax.balanceOf(pair);
         vm.startPrank(users.whale);
         // fund bob with some weth
-        uint256 treasuryTokenBalBefore = plainTax.balanceOf(users.treasury);
+        uint256 taxCollectedBalBefore = plainTax.balanceOf(address(plainTax));
         uint256 tax = amounts[1] * 100 / 10000;
         uint256 amountOutMin = amounts[1] - tax;
         weth.transfer(users.bob, 20e18);
@@ -373,17 +376,17 @@ contract TaxTokenTest is BaseTokenTest {
             amountIn, amounts[1], path, users.whale, block.timestamp
         );
         vm.stopPrank();
-        uint256 treasuryTokenBalAfter = plainTax.balanceOf(users.treasury);
+        uint256 taxCollectedBalAfter = plainTax.balanceOf(address(plainTax));
         uint256 swapperTokenBalAfter = plainTax.balanceOf(users.whale);
         uint256 pairTokenBalAfter = plainTax.balanceOf(pair);
 
-        assertEq(treasuryTokenBalAfter - treasuryTokenBalBefore, tax, "Treasury balance should be tax amount");
+        assertEq(taxCollectedBalAfter - taxCollectedBalBefore, tax, "Treasury balance should be tax amount");
         assertEq(pairTokenBalBefore - pairTokenBalAfter, swapperTokenBalAfter + tax);
 
         vm.warp(block.timestamp + 10 days);
 
         // update treasury bal before
-        treasuryTokenBalBefore = treasuryTokenBalAfter;
+        taxCollectedBalBefore = taxCollectedBalAfter;
         amountIn = 2e18;
         amounts = router.getAmountsOut(amountIn, path);
         tax = (amounts[1] * 1000) / 10000;
@@ -394,11 +397,11 @@ contract TaxTokenTest is BaseTokenTest {
             amountIn, amounts[1], path, users.bob, block.timestamp
         );
         vm.stopPrank();
-        treasuryTokenBalAfter = plainTax.balanceOf(users.treasury);
+        taxCollectedBalAfter = plainTax.balanceOf(address(plainTax));
         uint256 bobTaxTokenBal = plainTax.balanceOf(users.bob);
         tax = amounts[1] * 100 / 10000;
 
-        assertEq(treasuryTokenBalAfter - treasuryTokenBalBefore, tax, "Treasury balance should be tax amount");
+        assertEq(taxCollectedBalAfter - taxCollectedBalBefore, tax, "Treasury balance should be tax amount");
         assertEq(bobTaxTokenBal, amounts[1] - tax, "Bob tax token balance should be amount in minus tax");
 
         // SWAP TOKENS FOR WETH
