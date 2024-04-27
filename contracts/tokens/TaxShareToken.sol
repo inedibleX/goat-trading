@@ -94,7 +94,7 @@ contract TaxShareToken is TaxToken {
     }
 
     /**
-     * @notice Update the amount of tokens excluded from reward calculations. Includes 
+     * @notice Update the amount of tokens excluded from reward calculations. Includes
      *         address(this) and taxed. Address(0) inherently excluded because totalSupply lowers.
      * @param _from The address sending tokens.
      * @param _to The address receiving tokens.
@@ -114,7 +114,7 @@ contract TaxShareToken is TaxToken {
     function _awardTaxes(address _from, uint256 _amount) internal override {
         uint256 reward = _amount * sharePercent / _DIVISOR;
         // 1e18 is removed because rewardPerToken is in full tokens
-        rewardPerTokenStored += (reward * 1e18) / _totalSupply;
+        rewardPerTokenStored += (reward * 1e18) / (_totalSupply - excludedSupply);
         address to = address(this);
         _balances[to] += _amount - reward;
 
