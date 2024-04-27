@@ -213,6 +213,7 @@ contract TaxToken is ERC20, Ownable {
      */
     function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external virtual onlyOwner {
         if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TokenErrors.TaxTooHigh();
+        if (_dex == address(this)) revert TokenErrors.CannotTaxSelf();
         buyTax[_dex] = _buyTax;
         sellTax[_dex] = _sellTax;
 
