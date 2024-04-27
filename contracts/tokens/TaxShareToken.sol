@@ -85,12 +85,12 @@ contract TaxShareToken is TaxToken {
     function _updateRewards(address _from, address _to) internal {
         if (_from != address(0) && _from != address(this) && !taxed[_from]) {
             _balances[_from] += _earned(_from);
-            userRewardPerTokenPaid[_from] = rewardPerTokenStored;
         }
         if (_to != address(0) && _to != address(this) && !taxed[_to]) {
             _balances[_to] += _earned(_to);
-            userRewardPerTokenPaid[_to] = rewardPerTokenStored;
         }
+        userRewardPerTokenPaid[_to] = rewardPerTokenStored;
+        userRewardPerTokenPaid[_from] = rewardPerTokenStored;
     }
 
     /**
@@ -136,6 +136,7 @@ contract TaxShareToken is TaxToken {
     function setTaxes(address _dex, uint256 _buyTax, uint256 _sellTax) external virtual override onlyOwner {
         if (_buyTax > _TAX_MAX || _sellTax > _TAX_MAX) revert TokenErrors.TaxTooHigh();
         if (_dex == address(this)) revert TokenErrors.CannotTaxSelf();
+        _updateRewards(address(0), _dex);
         buyTax[_dex] = _buyTax;
         sellTax[_dex] = _sellTax;
 
