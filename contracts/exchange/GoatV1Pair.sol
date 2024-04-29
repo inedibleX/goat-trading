@@ -47,8 +47,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     uint112 private _reserveEth;
     // token reserve in the pool
     uint112 private _reserveToken;
-    // variable used to check for mev
-    uint32 private _lastTrade;
 
     // Amounts of eth needed to turn pool into an amm
     uint112 private _bootstrapEth;
@@ -248,8 +246,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         }
         GoatTypes.LocalVariables_Swap memory swapVars;
         swapVars.isBuy = amountWethOut > 0 ? false : true;
-        // check for mev
-        _handleMevCheck(swapVars.isBuy);
 
         (swapVars.initialReserveEth, swapVars.initialReserveToken) = _getActualReserves();
 
@@ -726,45 +722,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             pendingProtocolFees = 0;
         }
         _pendingProtocolFees = uint72(pendingProtocolFees);
-    }
-
-    /**
-     * @dev Handles (MEV) checks to mitigate front-running and sandwich attacks.
-     *      Only allows trade to occur in one direction after first trade.
-     *      sell -> buy -> buy -> buy ... is allowed
-     *      buy -> sell -> sell -> sell ... is allowed
-     *      buy -> buy -> sell -> sell ... is not allowed
-     *      sell -> sell -> buy -> buy ... is not allowed
-     * @param isBuy A boolean indicating nature of the trade (true for buy, false for sell).
-     * Post-conditions:
-     * - Updates the `_lastTrade` state variable to:-
-     *   - current timestamp if it is first trade in the block.
-     *   - current timestamp + 1 if trade after first is buy.
-     *   - current timestamp + 2 if trade after first is seel.
-     */
-    function _handleMevCheck(bool isBuy) internal {
-        // @note  Known bug for chains that have block time less than 2 second
-        uint8 swapType = isBuy ? 1 : 2;
-        uint32 timestamp = uint32(block.timestamp);
-        uint32 lastTrade = _lastTrade;
-        if (lastTrade < timestamp) {
-            lastTrade = timestamp;
-        } else if (lastTrade == timestamp) {
-            lastTrade = timestamp + swapType;
-        } else if (lastTrade == timestamp + 1) {
-            if (swapType == 2) {
-                revert GoatErrors.MevDetected1();
-            }
-        } else if (lastTrade == timestamp + 2) {
-            if (swapType == 1) {
-                revert GoatErrors.MevDetected2();
-            }
-        } else {
-            // make it bullet proof
-            revert GoatErrors.MevDetected();
-        }
-        // update last trade
-        _lastTrade = lastTrade;
     }
 
     /**
