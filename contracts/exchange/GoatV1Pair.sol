@@ -64,9 +64,16 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
     GoatTypes.InitialLPInfo private _initialLPInfo;
 
-    event Mint(address, uint256, uint256);
-    event Burn(address, uint256, uint256, address);
-    event Swap(address, uint256, uint256, uint256, uint256, address);
+    event Mint(address indexed sender, uint256 amountWeth, uint256 amountToken);
+    event Burn(address indexed sender, uint256 amountWeth, uint256 amountToken, address indexed to);
+    event Swap(
+        address indexed sender,
+        uint256 amountWethIn,
+        uint256 amountTokenIn,
+        uint256 amountWethOut,
+        uint256 amountTokenOut,
+        address indexed to
+    );
 
     constructor() {
         factory = msg.sender;
