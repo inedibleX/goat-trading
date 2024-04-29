@@ -103,7 +103,7 @@ contract TaxShareToken is TaxToken {
      */
     function _updateExcluded(address _from, address _to, uint256 _value) internal {
         if (_to == address(this) || taxed[_to]) excludedSupply += _value;
-        if (_from == address(this) || taxed[_from]) excludedSupply -= _value;
+        if (_from == address(this) || taxed[_from]) excludedSupply -= _value - _determineTax(from, to, value);;
     }
 
     /**
