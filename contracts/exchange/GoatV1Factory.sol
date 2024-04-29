@@ -31,7 +31,6 @@ contract GoatV1Factory {
     }
 
     function createPair(address token, GoatTypes.InitParams memory params) external returns (address) {
-        // @note is there a need to have minimum values for theser params so it can't be frontrun?
         if (params.bootstrapEth == 0 || params.virtualEth == 0 || params.initialTokenMatch == 0) {
             revert GoatErrors.InvalidParams();
         }

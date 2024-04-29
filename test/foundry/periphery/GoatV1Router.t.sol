@@ -870,8 +870,12 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(vars.virtualEth, 10e18);
         assertEq(vars.initialTokenMatch, 1000e18);
         assertEq(pair.vestingUntil(), block.timestamp + VESTING_PERIOD);
-        uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
-        assertEq(userPresaleBalance, amountOut);
+
+        // uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
+        // assertEq(userPresaleBalance, amountOut);
+
+        // @note we add and reduce presale balance of tx.origin
+        assertEq(pair.getPresaleBalance(tx.origin), amountOut);
     }
 
     function testSwapWethToTokenAndConvertPresaleToAmmFailWithExactBootstrapAmountBecauseOfFees() public {
@@ -1141,7 +1145,11 @@ contract GoatV1RouterTest is BaseTest {
         GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
 
         uint256 amountOut = _swapWethToToken();
-        assertEq(pair.getPresaleBalance(swapper), amountOut);
+        // assertEq(pair.getPresaleBalance(swapper), amountOut);
+
+        // @note we add and reduce presale balance of tx.origin
+        assertEq(pair.getPresaleBalance(tx.origin), amountOut);
+
         // Now swap token to weth
         vm.startPrank(swapper);
         token.approve(address(router), amountOut);
@@ -1231,7 +1239,11 @@ contract GoatV1RouterTest is BaseTest {
         _addLiquidityWithSomeWeth();
         GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
         uint256 amountOut = _swapWethToToken();
-        assertEq(pair.getPresaleBalance(swapper), amountOut);
+        // assertEq(pair.getPresaleBalance(swapper), amountOut);
+
+        // @note we add and reduce presale balance of tx.origin
+        assertEq(pair.getPresaleBalance(tx.origin), amountOut);
+
         // Now swap token to weth
         vm.startPrank(swapper);
         token.approve(address(router), amountOut);
@@ -1324,7 +1336,11 @@ contract GoatV1RouterTest is BaseTest {
         uint256 liquidityFee = (fees * 40) / 100;
         uint256 protocolFee = fees - liquidityFee;
 
-        assertEq(pair.getPresaleBalance(swapper), amountOut);
+        // assertEq(pair.getPresaleBalance(swapper), amountOut);
+
+        // @note we add and reduce presale balance of tx.origin
+        assertEq(pair.getPresaleBalance(tx.origin), amountOut);
+
         // Now swap token to weth
         vm.startPrank(swapper);
         token.approve(address(router), amountOut);
@@ -1382,7 +1398,8 @@ contract GoatV1RouterTest is BaseTest {
             block.timestamp
         );
         vm.stopPrank();
-        assertEq(pair.getPresaleBalance(swapper), amountOut); // Old presale balance
+        // assertEq(pair.getPresaleBalance(swapper), amountOut); // Old presale balance
+        assertEq(pair.getPresaleBalance(tx.origin), amountOut); // Old presale balance
     }
 
     function testSwapTokenToWethIsAllowedToEveryoneAfterVestingDuration() public {
