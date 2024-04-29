@@ -274,7 +274,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         // We store details of participants so that we only allow users who have
         // swap back tokens who have bought in the vesting period.
         if (swapVars.vestingUntil > block.timestamp) {
-            _updatePresale(to, swapVars.tokenAmount, swapVars.isBuy);
+            _updatePresale(tx.origin, swapVars.tokenAmount, swapVars.isBuy);
         }
 
         if (swapVars.isBuy) {
