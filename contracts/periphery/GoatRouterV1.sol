@@ -221,6 +221,23 @@ contract GoatV1Router {
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, false);
     }
 
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address token,
+        address to,
+        uint256 deadline
+    ) external ensure(deadline) {
+        uint256 poolBalBefore = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
+        IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
+        uint256 poolBalAfter = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
+        amountIn = poolBalAfter - poolBalBefore;
+        _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, address(this), false);
+        uint256 amountOut = IWETH(WETH).balanceOf(address(this));
+        IWETH(WETH).withdraw(amountOut);
+        payable(to).transfer(amountOut);
+    }
+
     /* ----------------------------- SWAP FUNCTIONS  ----------------------------- */
     function swapExactTokensForTokens(
         uint256 amountIn,
@@ -300,6 +317,24 @@ contract GoatV1Router {
         (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
         pair.swap(0, amountWethOut, to);
+    }
+
+    function swapExactTokensForETH(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
+        external
+        ensure(deadline)
+        returns (uint256 amountWethOut)
+    {
+        if (amountIn == 0) {
+            revert GoatErrors.InsufficientInputAmount();
+        }
+        GoatV1Pair pair;
+        (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
+        IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
+        pair.swap(0, amountWethOut, address(this));
+
+        uint256 amountOut = IWETH(WETH).balanceOf(address(this));
+        IWETH(WETH).withdraw(amountOut);
+        payable(to).transfer(amountOut);
     }
 
     /* ------------------------------ WITHDRAW FEES ----------------------------- */
