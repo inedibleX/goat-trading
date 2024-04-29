@@ -29,7 +29,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
     uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
     uint32 private constant _MIN_LOCK_PERIOD = 2 days;
-    uint32 public constant VESTING_PERIOD = 7 days;
+    uint32 public constant VESTING_PERIOD = 2 days;
     uint32 private constant _MAX_UINT32 = type(uint32).max;
     uint32 private constant _THIRTY_DAYS = 30 days;
 

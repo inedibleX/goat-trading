@@ -12,6 +12,9 @@ import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {FeeOnTransferToken} from "../../../contracts/mock/FeeOnTransferToken.sol";
 
 contract GoatV1RouterTest is BaseTest {
+    uint256 constant VESTING_PERIOD = 2 days;
+    uint256 constant SEVEN_DAYS = 7 days;
+
     function testConstructor() public {
         assertEq(address(router.FACTORY()), address(factory));
         assertEq(address(router.WETH()), address(weth));
@@ -563,12 +566,12 @@ contract GoatV1RouterTest is BaseTest {
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
 
         // See what happens when he tries to remove liqudity without reaching cooldown end
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
 
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         uint256 userLastRemainingLiquidity = pair.balanceOf(address(this));
 
         router.removeLiquidity(address(token), userLastRemainingLiquidity, 0, 0, lp_1, block.timestamp);
@@ -647,12 +650,12 @@ contract GoatV1RouterTest is BaseTest {
         vm.warp(block.timestamp + 2 days);
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
 
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         router.removeLiquidity(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
 
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
 
         uint256 userLastRemainingLiquidity = pair.balanceOf(address(this));
         // sending 1 wei less than actual balance should cause revert
@@ -866,7 +869,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(vars.reserveToken, reserveOld - amountOut);
         assertEq(vars.virtualEth, 10e18);
         assertEq(vars.initialTokenMatch, 1000e18);
-        assertEq(pair.vestingUntil(), block.timestamp + 7 days);
+        assertEq(pair.vestingUntil(), block.timestamp + VESTING_PERIOD);
         uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
         assertEq(userPresaleBalance, amountOut);
     }
@@ -917,7 +920,7 @@ contract GoatV1RouterTest is BaseTest {
         );
         vm.stopPrank();
         // Now pool is converted to AMM
-        assertEq(pair.vestingUntil(), block.timestamp + 7 days); // vesting period is set
+        assertEq(pair.vestingUntil(), block.timestamp + VESTING_PERIOD); // vesting period is set
         /**
          * @dev only 5e18 + fees, is needed to make the reserveEth == bootstrapEth and convert the pool to AMM
          * remaining will be swapped in a AMM with actual reserves
@@ -1357,7 +1360,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(vars.reserveToken, reserveTokenBefore + amountOut);
         assertEq(vars.virtualEth, 10e18);
         assertEq(vars.initialTokenMatch, 1000e18);
-        assertEq(pair.vestingUntil(), block.timestamp + 7 days);
+        assertEq(pair.vestingUntil(), block.timestamp + VESTING_PERIOD);
         uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
         assertEq(userPresaleBalance, 0);
         assertEq(pair.getPendingLiquidityFees(), liquidityFee + liquidityFeeOnCurrentSwap);
@@ -1491,7 +1494,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(pair.lpFees(address(this)), 0);
 
         // See what happens when he tries to remove liqudity again after 1 week
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + SEVEN_DAYS);
         uint256 balanceBefore2 = weth.balanceOf(address(this));
         pair.approve(address(router), fractionalLiquidity);
         (uint256 amountWethOut,) =
