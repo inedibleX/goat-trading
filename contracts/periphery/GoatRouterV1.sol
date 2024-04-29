@@ -254,9 +254,9 @@ contract GoatV1Router {
         }
 
         if (path[0] == WETH) {
-            swapExactWethForTokens(amounts[0], amountOut, path[1], to, deadline);
+            amounts[1] = swapExactWethForTokens(amounts[0], amountOut, path[1], to, deadline);
         } else {
-            swapExactTokensForWeth(amounts[0], amountOut, path[0], to, deadline);
+            amounts[1] = swapExactTokensForWeth(amounts[0], amountOut, path[0], to, deadline);
         }
     }
 
@@ -297,7 +297,7 @@ contract GoatV1Router {
             revert GoatErrors.InsufficientInputAmount();
         }
         GoatV1Pair pair;
-        (amountWethOut, pair) = _getWethAmountOut(amountIn, amountOutMin, token);
+        (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
         pair.swap(0, amountWethOut, to);
     }
@@ -335,7 +335,7 @@ contract GoatV1Router {
 
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
-            : _getWethAmountOut(amountInput, amountOutMin, token);
+            : _getAmountWethOut(amountInput, amountOutMin, token);
         pair.swap(isWethIn ? amountOutput : 0, isWethIn ? 0 : amountOutput, to);
     }
 
@@ -477,7 +477,8 @@ contract GoatV1Router {
         }
     }
 
-    function _getWethAmountOut(uint256 amountIn, uint256 amountOutMin, address token)
+
+    function _getAmountWethOut(uint256 amountIn, uint256 amountOutMin, address token)
         internal
         view
         returns (uint256 amountWethOut, GoatV1Pair pair)
@@ -523,7 +524,7 @@ contract GoatV1Router {
             amounts[1] = amountOut;
         } else {
             // Token out is WETH
-            (uint256 amountOut,) = _getWethAmountOut(amountIn, 0, token);
+            (uint256 amountOut,) = _getAmountWethOut(amountIn, 0, token);
             amounts[1] = amountOut;
         }
     }
@@ -533,7 +534,7 @@ contract GoatV1Router {
     }
 
     function getWethAmountOut(uint256 amountTokenIn, address token) external view returns (uint256 wethAmountOut) {
-        (wethAmountOut,) = _getWethAmountOut(amountTokenIn, 0, token);
+        (wethAmountOut,) = _getAmountWethOut(amountTokenIn, 0, token);
     }
 
     function getAmountsIn(uint256 amountOut, address[] memory path) public view returns (uint256[] memory amounts) {
