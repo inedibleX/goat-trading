@@ -332,6 +332,7 @@ contract GoatV1Router {
         } else {
             amountInput = IERC20(token).balanceOf(address(pair)) - reserveToken;
         }
+
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
             : _getAmountWethOut(amountInput, amountOutMin, token);
@@ -475,6 +476,7 @@ contract GoatV1Router {
             revert GoatErrors.InsufficientAmountOut();
         }
     }
+
 
     function _getAmountWethOut(uint256 amountIn, uint256 amountOutMin, address token)
         internal

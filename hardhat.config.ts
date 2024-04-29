@@ -90,7 +90,7 @@ const config: HardhatUserConfig = {
     path: "./data/abi",
     runOnCompile: true,
     clear: true,
-    flat: true,
+    flat: false,
     spacing: 2,
   },
   networks: {
@@ -140,7 +140,7 @@ const config: HardhatUserConfig = {
   },
   typechain: {
     outDir: "src/types",
-    target: "ethers-v5",
+    target: "ethers-v6",
   },
   preprocess: {
     eachLine: () => ({
