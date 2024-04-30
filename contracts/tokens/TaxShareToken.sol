@@ -119,7 +119,7 @@ contract TaxShareToken is TaxToken {
         _balances[to] += _amount - reward;
 
         // @note not sure whether to emit the full amount or just token balance change.
-        emit Transfer(_from, to, _amount - reward);
+        emit Transfer(_from, to, _amount);
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
