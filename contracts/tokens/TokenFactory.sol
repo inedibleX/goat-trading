@@ -7,6 +7,7 @@ import {DemurrageToken} from "./DemurrageToken.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 interface IToken {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -95,6 +96,8 @@ contract TokenFactory {
             tokenAddress = address(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
         } else if (_type == TokenType.TAX) {
             tokenAddress = address(new TaxToken(_name, _symbol, _totalSupply, _weth));
+        } else {
+            revert TokenErrors.InvalidTokenType();
         }
 
         IToken token = IToken(tokenAddress);

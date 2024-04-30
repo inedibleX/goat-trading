@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 contract TokenErrors {
     error BurnPercentTooHigh();
     error CannotTaxSelf();
+    error InvalidTokenType();
     error NewBurnPercentTooHigh();
     error NewPotPercentTooHigh();
     error NewVaultPercentTooHigh();

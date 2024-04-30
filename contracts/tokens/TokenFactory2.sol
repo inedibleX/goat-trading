@@ -7,6 +7,7 @@ import {TokenType} from "./TokenFactory.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
+import {TokenErrors} from "./TokenErrors.sol";
 
 interface IToken {
     function transfer(address to, uint256 amount) external returns (bool);
@@ -81,6 +82,8 @@ contract TokenFactory2 {
             tokenAddress = address(new TaxShareToken(_name, _symbol, _totalSupply, _percent, _weth));
         } else if (_type == TokenType.TAXBURN) {
             tokenAddress = address(new TaxBurnToken(_name, _symbol, _totalSupply, _percent, _weth));
+        } else {
+            revert TokenErrors.InvalidTokenType();
         }
         IToken token = IToken(tokenAddress);
 
