@@ -1288,6 +1288,71 @@ contract GoatV1RouterTest is BaseTest {
         uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
         assertEq(userPresaleBalance, 0);
     }
+    // SWAP EXACT TOKENS TO ETH
+
+    function testSwapExactTokensForETHSuccessInPresaleWithoutEth() public {
+        _addLiquidityWithoutEth();
+
+        // Swap some ETH to token
+        vm.deal(swapper, 5e18);
+        vm.startPrank(swapper);
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256 amountOut = router.swapExactETHForTokens{value: 5e18}(
+            0, // no slippage protection for now
+            path,
+            swapper,
+            block.timestamp
+        );
+
+        // Swap token to ETH
+        token.approve(address(router), amountOut);
+        uint256 amountEthOut = router.swapExactTokensForETH(
+            amountOut, // amountIn
+            4.5e18, // amountOutMin
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        uint256 EthBalanceOfSwapper = swapper.balance;
+
+        assertEq(EthBalanceOfSwapper, amountEthOut);
+    }
+
+    function testSwapExactTokensForETHSuccessInAmm() public {
+        _addLiquidityEthAndConvertToAmm();
+
+        // Swap some ETH to token
+        vm.deal(swapper, 5e18);
+        vm.startPrank(swapper);
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256 amountOut = router.swapExactETHForTokens{value: 5e18}(
+            0, // no slippage protection for now
+            path,
+            swapper,
+            block.timestamp
+        );
+
+        // Swap token to ETH
+        token.approve(address(router), amountOut);
+        uint256 amountEthOut = router.swapExactTokensForETH(
+            amountOut, // amountIn
+            4.5e18, // amountOutMin
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        uint256 EthBalanceOfSwapper = swapper.balance;
+
+        assertEq(EthBalanceOfSwapper, amountEthOut);
+    }
 
     function testSwapTokenToWethSuccessInAmm() public {
         _addLiquidityAndConvertToAmm();
@@ -1521,6 +1586,98 @@ contract GoatV1RouterTest is BaseTest {
     }
 
     /* ----------------------- FEE ON TRANSFER TOKEN TEST ----------------------- */
+    function testSwapTokenToETHFeeOnTransferToken() public {
+        token = MockERC20(address(new FeeOnTransferToken()));
+
+        _addLiquidityAndConvertToAmm();
+        weth.transfer(swapper, 5e18);
+        vm.startPrank(swapper);
+        weth.approve(address(router), 5e18);
+        router.swapExactWethForTokensSupportingFeeOnTransferTokens(
+            5e18,
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        uint256 amountTokenIn = token.balanceOf(swapper);
+
+        token.approve(address(router), amountTokenIn);
+
+        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            amountTokenIn, // amountIn
+            0, // no slippage protection for now
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        assertGe(swapper.balance, 4e18); // atleast should get 4e18
+        assertEq(token.balanceOf(swapper), 0); // all tokens should be swapped
+        vm.stopPrank();
+    }
+
+    function testSwapExactTokensForETHSuccessInPresaleWithSomeEth() public {
+        _addLiquidityWithSomeEth();
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+
+        // Swap some ETH to token
+        vm.deal(swapper, 5e18);
+        vm.startPrank(swapper);
+        address[] memory path = new address[](2);
+        path[0] = address(weth);
+        path[1] = address(token);
+        uint256 amountOut = router.swapExactETHForTokens{value: 5e18}(
+            0, // no slippage protection for now
+            path,
+            swapper,
+            block.timestamp
+        );
+
+        // Swap token to ETH
+        token.approve(address(router), amountOut);
+        uint256 amountWethOut = router.swapExactTokensForETH(
+            amountOut, // amountIn
+            4.5e18, // amountOutMin
+            address(token),
+            swapper,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        GoatTypes.LocalVariables_PairStateInfo memory vars;
+        (
+            vars.reserveEth,
+            vars.reserveToken,
+            vars.virtualEth,
+            vars.initialTokenMatch,
+            vars.bootstrapEth,
+            vars.virtualToken
+        ) = pair.getStateInfoForPresale();
+        // // Fees charge on first swap
+        uint256 feeOnFirstSwap = (5e18 * 99) / 10000;
+        uint256 liquidityFeeOnFirstSwap = (feeOnFirstSwap * 40) / 100;
+        uint256 protocolFeeOnFirstSwap = feeOnFirstSwap - liquidityFeeOnFirstSwap;
+        uint256 wethReserveAfterFirstActualSwap = 10e18 - protocolFeeOnFirstSwap; // only protocol fee is charged on presale
+        // //Fee charged on this current swap in on amountWethOut
+        uint256 feesAmountOut = (amountWethOut * 10000) / 9901 - amountWethOut;
+        uint256 liqudityFeeOnCurrentSwap = (feesAmountOut * 40) / 100;
+        uint256 protocolFeeOnCurrentSwap = feesAmountOut - liqudityFeeOnCurrentSwap;
+
+        uint256 reserveTokenBefore = 251240570411769128594;
+        uint256 swapperEthBalance = swapper.balance;
+        assertEq(swapperEthBalance, amountWethOut);
+        assertEq(vars.reserveEth, wethReserveAfterFirstActualSwap - amountWethOut - protocolFeeOnCurrentSwap);
+
+        assertEq(vars.reserveToken, reserveTokenBefore + amountOut);
+        assertEq(vars.virtualEth, 10e18);
+        assertEq(vars.initialTokenMatch, 1000e18);
+        assertEq(pair.vestingUntil(), type(uint32).max);
+        assertEq(vars.bootstrapEth, 10e18);
+        assertEq(vars.virtualToken, 250e18);
+        uint256 userPresaleBalance = pair.getPresaleBalance(swapper);
+        assertEq(userPresaleBalance, 0);
+    }
+
     function testSwapWethToTokenSuccessFeeOnTransferToken() public {
         token = MockERC20(address(new FeeOnTransferToken()));
         _addLiquidityEthAndConvertToAmm();
