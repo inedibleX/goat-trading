@@ -104,7 +104,7 @@ contract TaxToken is ERC20, Ownable {
             }
         }
 
-        emit Transfer(from, to, value);
+        emit Transfer(from, to, receiveValue);
     }
 
     /**
