@@ -9,9 +9,6 @@ import {TokenErrors} from "./TokenErrors.sol";
 interface IRouter {
     function getAmountsOut(uint256 amountIn, address[] memory path) external returns (uint256[] memory);
 
-    function swapExactTokensForWeth(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
-        external
-        returns (uint256 amountWethOut);
     function swapExactTokensForWethSupportingFeeOnTransferTokens(
         uint256 amountIn,
         uint256 amountOutMin,
@@ -143,6 +140,11 @@ contract TaxToken is ERC20, Ownable {
      */
     function _sellTaxes(uint256 tokens) internal virtual {
         uint256 balance = _balances[address(this)];
+
+        // if taxes have been collected before from buy txns we don't want
+        // huge slippage to occur because of tax dump. We only
+        // allow 2X tax amount to be sold per transaction
+        tokens = tokens * 2;
 
         if (tokens > balance) {
             tokens = balance;
