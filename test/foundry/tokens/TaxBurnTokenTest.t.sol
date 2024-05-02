@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {BaseTokenTest, TokenFactory2, TaxBurnToken} from "./BaseTokenTest.t.sol";
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
-import {console2} from "forge-std/console2.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";

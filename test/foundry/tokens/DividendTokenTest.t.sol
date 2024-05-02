@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import {BaseTokenTest, DividendToken, TokenFactory3, console2} from "./BaseTokenTest.t.sol";
+import {BaseTokenTest, DividendToken} from "./BaseTokenTest.t.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
@@ -28,7 +28,7 @@ contract DividendTokenTest is BaseTokenTest {
         );
 
         if (revertType == RevertType.NonZeroInitialEth) {
-            vm.expectRevert(TokenFactory3.InitialEthNotAccepted.selector);
+            vm.expectRevert(TokenErrors.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory3.createToken(
             tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.DIVIDEND, 5000, initParams

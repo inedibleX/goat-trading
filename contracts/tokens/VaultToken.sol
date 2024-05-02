@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {TaxToken, TokenErrors, IRouter} from "./TaxToken.sol";
+import {TaxToken, TokenErrors, IGoatV1Router} from "./TaxToken.sol";
 import {IWETH} from "./../interfaces/IWETH.sol";
 
 /**
@@ -82,7 +82,9 @@ contract VaultToken is TaxToken {
         path[1] = _WETH;
 
         // Try/catch because this will revert on buy txns because of reentrancy
-        try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(tokens, 0, token, token, block.timestamp) {
+        try IGoatV1Router(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+            tokens, 0, token, token, block.timestamp
+        ) {
             uint256 ethValue = IWETH(_WETH).balanceOf(address(this));
             IWETH(_WETH).withdraw(ethValue);
 

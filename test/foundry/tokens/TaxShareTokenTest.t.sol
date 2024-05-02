@@ -31,7 +31,7 @@ contract TaxShareTokenTest is BaseTokenTest {
         );
 
         if (revertType == RevertType.NonZeroInitialEth) {
-            vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
+            vm.expectRevert(TokenErrors.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory2.createToken(
             tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.TAXSHARE, taxSharePercent, initParams

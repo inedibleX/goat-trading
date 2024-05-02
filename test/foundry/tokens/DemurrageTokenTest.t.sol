@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import "forge-std/Test.sol";
-
+import {console2} from "forge-std/console2.sol";
 import {BaseTokenTest, DemurrageToken, TokenFactory} from "./BaseTokenTest.t.sol";
 
-import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
+import {TokenType, TokenErrors} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
@@ -38,7 +37,7 @@ contract DemurrageTokenTest is BaseTokenTest {
         );
 
         if (revertType == RevertType.NonZeroInitialEth) {
-            vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
+            vm.expectRevert(TokenErrors.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory.createToken(
             tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.DEMURRAGE, 1e12, initParams

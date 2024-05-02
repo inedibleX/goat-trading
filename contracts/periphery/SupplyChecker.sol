@@ -3,32 +3,13 @@ pragma solidity 0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IPair {
-    function getStateInfoAmm() external view returns (uint112 reserveEth, uint112 reserveToken);
-    function getReserves() external view returns (uint112 reserveEth, uint112 reserveToken);
-    function vestingUntil() external view returns (uint256);
-}
+import {IGoatV1Router} from "./../interfaces/IGoatV1Router.sol";
+import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
+import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
 
-interface IFactory {
-    function getPool(address token) external view returns (address pair);
-}
-
-interface IRouter {
-    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint256[] memory);
-
-    function getAmountsIn(uint256 amountOut, address[] memory path) external view returns (uint256[] memory);
-
-    function FACTORY() external view returns (address);
-    function WETH() external view returns (address);
-}
-
-interface IToken {
-    function getTaxes(address token) external view returns (uint256 buyTax, uint256 sellTax);
-}
 /**
  * @notice Utility contract so the frontend can easily check many total supplies at once.
  */
-
 contract SupplyChecker {
     address internal immutable _ROUTER;
     address internal immutable _FACTORY;
@@ -38,8 +19,8 @@ contract SupplyChecker {
 
     constructor(address router) {
         _ROUTER = router;
-        _FACTORY = IRouter(router).FACTORY();
-        _WETH = IRouter(router).WETH();
+        _FACTORY = IGoatV1Router(router).FACTORY();
+        _WETH = IGoatV1Router(router).WETH();
     }
 
     function checkSupplies(address[] memory tokens) external view returns (uint256[] memory supplies) {
@@ -52,7 +33,7 @@ contract SupplyChecker {
     function getActualPoolReserves(address[] memory pairs) external view returns (uint256[][] memory reserves) {
         reserves = new uint256[][](pairs.length);
         for (uint256 i = 0; i < pairs.length; i++) {
-            (uint112 reserveEth, uint112 reserveToken) = IPair(pairs[i]).getStateInfoAmm();
+            (uint112 reserveEth, uint112 reserveToken) = IGoatV1Pair(pairs[i]).getStateInfoAmm();
             uint256[] memory pairReserves = new uint256[](2);
             pairReserves[0] = uint256(reserveEth);
             pairReserves[1] = uint256(reserveToken);
@@ -64,7 +45,7 @@ contract SupplyChecker {
         address token;
         bool isSell;
 
-        amounts = IRouter(_ROUTER).getAmountsOut(amountIn, path);
+        amounts = IGoatV1Router(_ROUTER).getAmountsOut(amountIn, path);
 
         // Check what will be dumped
         if (path[0] == _WETH) {
@@ -74,7 +55,7 @@ contract SupplyChecker {
             isSell = true;
         }
 
-        IPair pair = IPair(IFactory(_FACTORY).getPool(token));
+        IGoatV1Pair pair = IGoatV1Pair(IGoatV1Factory(_FACTORY).getPool(token));
 
         // making static call because some tokens may not have taxes
         // and will revert if we call directly
@@ -88,7 +69,7 @@ contract SupplyChecker {
                 uint256 taxToSell = (amounts[0] * sellTax) / _DIVISOR;
 
                 // get actual amount out after taxes
-                amounts = IRouter(_ROUTER).getAmountsOut(amountIn - taxToSell, path);
+                amounts = IGoatV1Router(_ROUTER).getAmountsOut(amountIn - taxToSell, path);
 
                 //
                 // so keeping it as original amount In because amount[0] returned
@@ -109,7 +90,7 @@ contract SupplyChecker {
                     }
 
                     // as we know path is same for sell
-                    uint256[] memory taxAmounts = IRouter(_ROUTER).getAmountsOut(taxToSell, path);
+                    uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
 
                     // get reserves or pair contract
                     (uint112 reserveEth, uint112 reserveToken) = pair.getReserves();

@@ -5,18 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ERC20.sol";
 import {TokenErrors} from "./TokenErrors.sol";
-
-interface IRouter {
-    function getAmountsOut(uint256 amountIn, address[] memory path) external returns (uint256[] memory);
-
-    function swapExactTokensForWethSupportingFeeOnTransferTokens(
-        uint256 amountIn,
-        uint256 amountOutMin,
-        address token,
-        address to,
-        uint256 deadline
-    ) external;
-}
+import {IGoatV1Router} from "./../interfaces/IGoatV1Router.sol";
 
 /**
  * @title Plain Tax Token
@@ -161,7 +150,7 @@ contract TaxToken is ERC20, Ownable {
         path[1] = _WETH;
 
         // Try/catch because this will revert on buy txns because of reentrancy
-        try IRouter(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
+        try IGoatV1Router(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
             tokens, 0, address(this), treasury, block.timestamp
         ) {} catch (bytes memory) {
             // if pool is not in presale don't transfer tax tokens to the treasury

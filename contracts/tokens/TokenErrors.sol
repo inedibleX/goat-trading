@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 contract TokenErrors {
     error BurnPercentTooHigh();
     error CannotTaxSelf();
+    error InitialEthNotAccepted();
     error InvalidTokenType();
     error NewBurnPercentTooHigh();
     error NewPotPercentTooHigh();
@@ -15,4 +16,5 @@ contract TokenErrors {
     error OnlyTeam();
     error ProvidedRewardsTooHigh();
     error TaxTooHigh();
+    error TokenAmountForPoolTooLow();
 }

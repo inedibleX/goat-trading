@@ -6,14 +6,11 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {BaseTokenTest, TaxToken, TokenFactory} from "./BaseTokenTest.t.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
-import {GoatV1Pair} from "./../../../contracts/exchange/GoatV1Pair.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -37,7 +34,7 @@ contract TaxTokenTest is BaseTokenTest {
         );
 
         if (revertType == RevertType.NonZeroInitialEth) {
-            vm.expectRevert(TokenFactory.InitialEthNotAccepted.selector);
+            vm.expectRevert(TokenErrors.InitialEthNotAccepted.selector);
         }
         (address token, address pool) = tokenFactory.createToken(
             tokenName, tokenSymbol, totalSupply, 100, 100, users.owner, TokenType.TAX, 1000, initParams

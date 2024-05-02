@@ -6,12 +6,10 @@ import {GoatLibrary} from "../library/GoatLibrary.sol";
 import {GoatV1Factory} from "./../exchange/GoatV1Factory.sol";
 import {GoatTypes} from "./../library/GoatTypes.sol";
 
+import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
+
 interface ILotteryToken {
     function payWinner(address user, uint256 entryAmount) external;
-}
-
-interface IGoatPair {
-    function mint(address to) external returns (uint256 liquidity);
 }
 
 /**
@@ -91,7 +89,7 @@ contract LotteryTokenMaster {
         require(bootstrapTokenAmt >= _totalSupply / 10, "Must use at least 10% of total supply in the pool.");
 
         token.transfer(pool, bootstrapTokenAmt);
-        IGoatPair(pool).mint(owner);
+        IGoatV1Pair(pool).mint(owner);
 
         token.setTaxes(pool, _buyTax, _sellTax);
         token.transferTreasury(owner);

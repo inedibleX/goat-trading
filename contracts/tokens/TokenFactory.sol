@@ -9,24 +9,9 @@ import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
 import {TokenErrors} from "./TokenErrors.sol";
 
-interface IToken {
-    function transfer(address to, uint256 amount) external returns (bool);
-    function balanceOf(address user) external returns (uint256);
-    function approve(address user, uint256 amount) external returns (bool);
-    function setTaxes(address dex, uint256 buyTax, uint256 sellTax) external;
-    function transferBeneficiary(address beneficiary) external;
-    function transferOwnership(address owner) external;
-    function transferTreasury(address treasury) external;
-    function changeSafeHaven(address _safeHaven, bool _toAdd) external;
-}
-
-interface IGoatFactory {
-    function createPair(address _token, GoatTypes.InitParams memory initParams) external returns (address);
-}
-
-interface IGoatPair {
-    function mint(address to) external returns (uint256 liquidity);
-}
+import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
+import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
+import {IToken} from "./../interfaces/IToken.sol";
 
 enum TokenType {
     PLAIN,
@@ -47,14 +32,11 @@ enum TokenType {
  *      we're going for simplicity.
  */
 contract TokenFactory {
-    IGoatFactory private _factory;
+    IGoatV1Factory private _factory;
     address private immutable _weth;
 
-    error TokenAmountForPoolTooLow();
-    error InitialEthNotAccepted();
-
     constructor(address factory_, address weth_) {
-        _factory = IGoatFactory(factory_);
+        _factory = IGoatV1Factory(factory_);
         _weth = weth_;
     }
 
@@ -87,7 +69,7 @@ contract TokenFactory {
         // Create the initial token.
 
         if (initParams.initialEth != 0) {
-            revert InitialEthNotAccepted();
+            revert TokenErrors.InitialEthNotAccepted();
         }
 
         if (_type == TokenType.PLAIN) {
@@ -108,10 +90,10 @@ contract TokenFactory {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
 
-        if (bootstrapTokenAmt < _totalSupply / 10) revert TokenAmountForPoolTooLow();
+        if (bootstrapTokenAmt < _totalSupply / 10) revert TokenErrors.TokenAmountForPoolTooLow();
 
         token.transfer(pool, bootstrapTokenAmt);
-        IGoatPair(pool).mint(_owner);
+        IGoatV1Pair(pool).mint(_owner);
 
         // Set taxes for dex, transfer all ownership to owner.
         if (_type == TokenType.DEMURRAGE) {
