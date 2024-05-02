@@ -5,7 +5,7 @@ import {BaseTokenTest, VaultToken, TokenFactory3} from "./BaseTokenTest.t.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
-import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
+import {TokenErrors} from "./../../../contracts/tokens/library/TokenErrors.sol";
 // Vault token:
 // 1. Taxes are added to the correct place
 // 2. Token receives ether from sells

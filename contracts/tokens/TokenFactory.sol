@@ -7,21 +7,12 @@ import {DemurrageToken} from "./DemurrageToken.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
+import {TokenType} from "./library/TokenTypes.sol";
 
 import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
 import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
 import {IToken} from "./../interfaces/IToken.sol";
-
-enum TokenType {
-    PLAIN,
-    DEMURRAGE,
-    TAX,
-    TAXSHARE,
-    TAXBURN,
-    DIVIDEND,
-    VAULT
-}
 
 /**
  * @title Token Factory

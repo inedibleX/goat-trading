@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {DividendToken} from "./DividendToken.sol";
 import {VaultToken} from "./VaultToken.sol";
-import {TokenType} from "./TokenFactory.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
+import {TokenType} from "./library/TokenTypes.sol";
 
 import {IToken} from "./../interfaces/IToken.sol";
 import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";

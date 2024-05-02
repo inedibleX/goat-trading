@@ -9,7 +9,7 @@ import {BaseTokenTest, TokenFactory, TaxShareToken, console2} from "./BaseTokenT
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenType} from "../../../contracts/tokens/TokenFactory2.sol";
-import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
+import {TokenErrors} from "./../../../contracts/tokens/library/TokenErrors.sol";
 
 // Taxshare tokens:
 // 1. When taxes occur half go to this and half to rewards

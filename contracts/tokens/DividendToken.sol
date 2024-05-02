@@ -5,7 +5,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {TaxToken} from "./TaxToken.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
 /**
  * @title Dividend Token
  * @author Robert M.C. Forster

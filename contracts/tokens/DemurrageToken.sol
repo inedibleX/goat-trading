@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ERC20.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
 import {console2} from "forge-std/Test.sol";
 /**
  * @title Demurrage Token: A token that decays over time if it's being held in unproductive manners.

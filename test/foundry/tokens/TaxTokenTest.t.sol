@@ -10,7 +10,7 @@ import {TokenType} from "../../../contracts/tokens/TokenFactory.sol";
 
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
-import {TokenErrors} from "./../../../contracts/tokens/TokenErrors.sol";
+import {TokenErrors} from "./../../../contracts/tokens/library/TokenErrors.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working

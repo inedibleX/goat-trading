@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./ERC20.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
 import {IGoatV1Router} from "./../interfaces/IGoatV1Router.sol";
 
 /**

@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "./TaxToken.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
 
 /**
  * @title TaxShare Token

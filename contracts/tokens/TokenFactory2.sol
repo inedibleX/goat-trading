@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import {TaxShareToken} from "./TaxShareToken.sol";
 import {TaxBurnToken} from "./TaxBurnToken.sol";
-import {TokenType} from "./TokenFactory.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
-import {TokenErrors} from "./TokenErrors.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
+import {TokenType} from "./library/TokenTypes.sol";
 
 import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
 import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
