@@ -10,7 +10,7 @@ import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
 /**
  * @notice Utility contract so the frontend can easily check many total supplies at once.
  */
-contract SupplyChecker {
+contract GoatHelper {
     address internal immutable _ROUTER;
     address internal immutable _FACTORY;
     address internal immutable _WETH;
@@ -27,6 +27,14 @@ contract SupplyChecker {
         supplies = new uint256[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             supplies[i] = IERC20(tokens[i]).totalSupply();
+        }
+    }
+
+    function getVestingUntil(address[] memory pairs) external view returns (uint256[] memory vestingUntils) {
+        vestingUntils = new uint256[](pairs.length);
+        uint256 length = pairs.length;
+        for (uint256 i = 0; i < length; i++) {
+            vestingUntils[i] = IGoatV1Pair(pairs[i]).vestingUntil();
         }
     }
 
