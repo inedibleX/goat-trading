@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {TaxToken} from "./TaxToken.sol";
 import {PlainToken} from "./PlainToken.sol";
-import {DemurrageToken} from "./DemurrageToken.sol";
 
 import {GoatTypes} from "../library/GoatTypes.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
@@ -65,8 +64,6 @@ contract TokenFactory {
 
         if (_type == TokenType.PLAIN) {
             tokenAddress = address(new PlainToken(_name, _symbol, _totalSupply));
-        } else if (_type == TokenType.DEMURRAGE) {
-            tokenAddress = address(new DemurrageToken(_name, _symbol, _totalSupply, _percent));
         } else if (_type == TokenType.TAX) {
             tokenAddress = address(new TaxToken(_name, _symbol, _totalSupply, _weth));
         } else {
