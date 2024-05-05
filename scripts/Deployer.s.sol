@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {Script} from "forge-std/Script.sol";
 import {GoatV1Factory} from "../contracts/exchange/GoatV1Factory.sol";
-import {GoatV1Router} from "../contracts/periphery/GoatRouterV1.sol";
+import {GoatV1Router} from "../contracts/periphery/GoatV1Router.sol";
 import {TokenFactory, TokenType} from "../contracts/tokens/TokenFactory.sol";
 import {TokenFactory2} from "../contracts/tokens/TokenFactory2.sol";
 import {TokenFactory3} from "../contracts/tokens/TokenFactory3.sol";

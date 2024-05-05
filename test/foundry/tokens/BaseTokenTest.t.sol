@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 
 import {GoatV1Factory} from "../../../contracts/exchange/GoatV1Factory.sol";
-import {GoatV1Router} from "../../../contracts/periphery/GoatRouterV1.sol";
+import {GoatV1Router} from "../../../contracts/periphery/GoatV1Router.sol";
 import {MockWETH} from "../../../contracts/mock/MockWETH.sol";
 import {MockERC20} from "../../../contracts/mock/MockERC20.sol";
 
