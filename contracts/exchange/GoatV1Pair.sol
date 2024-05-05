@@ -925,15 +925,15 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     /**
      * @notice Returns weth address as token0
      */
-    function token0() external view returns (address token0) {
+    function token0() external view returns (address) {
         return _weth;
     }
 
     /**
      * @notice Returns token address as token1
      */
-    function token1() external view returns (address token1) {
-        _token;
+    function token1() external view returns (address) {
+        return _token;
     }
 
     /**
