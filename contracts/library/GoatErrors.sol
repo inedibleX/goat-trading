@@ -5,12 +5,15 @@ contract GoatErrors {
     error ActionNotAllowed();
     error BurnLimitExceeded();
     error CannnotPairWithBaseAsset();
+    error CannotWithdrawFeesForPair();
     error EthTransferFailed();
+    error ExcessiveInputAmount();
     error Expired();
     error FailedToSendEther();
     error Forbidden();
     error GoatPoolDoesNotExist();
     error GoatV1Forbidden();
+    error IncorrectTakeoverInitialEth();
     error IncorrectTokenAmount();
     error IncorrectWethAmount();
     error InsufficientAmountOut();
@@ -25,6 +28,7 @@ contract GoatErrors {
     error InsufficientWethAmount();
     error InvalidEthAmount();
     error InvalidParams();
+    error InvalidPath();
     error KInvariant();
     error LiquidityCooldownActive();
     error LiquidityLocked();
@@ -33,6 +37,7 @@ contract GoatErrors {
     error MevDetected2();
     error MultipleOutputAmounts();
     error NotEnoughBalance();
+    error NewVirtualEthGreaterThanOld();
     error OnlyGov();
     error PairExists();
     error PoolDoesNotExist();
