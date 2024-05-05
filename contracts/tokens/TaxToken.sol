@@ -124,8 +124,15 @@ contract TaxToken is ERC20, Ownable {
     }
 
     /**
-     * @notice Sell taxes if the balance of treasury is over a pre-determined amount.
-     *
+     * @notice Sells the collected tax tokens.
+     * @dev This function sells the tax tokens collected.
+     * It limits the amount of tokens sold to twice the current tax amount
+     * if there is pending tax to sell. If the DEX address is not set,
+     * the tax tokens are transferred directly to the treasury. Otherwise, it
+     * attempts to swap the tax tokens for WETH on the DEX and sends the WETH to
+     * the treasury. If the swap fails, the tax
+     * tokens are transferred to the treasury instead.
+     * @param tokens The amount of tax tokens collected in current txn.
      */
     function _sellTaxes(uint256 tokens) internal virtual {
         uint256 balance = _balances[address(this)];
