@@ -141,7 +141,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
                 (uint256 tokenAmtForPresale, uint256 tokenAmtForAmm) = _tokenAmountsForLiquidityBootstrap(
                     mintVars.virtualEth, mintVars.bootstrapEth, balanceEth, mintVars.initialTokenMatch
                 );
-                if (balanceToken != (tokenAmtForPresale + tokenAmtForAmm)) {
+                if (balanceToken < (tokenAmtForPresale + tokenAmtForAmm)) {
                     revert GoatErrors.InsufficientTokenAmount();
                 }
                 liquidity =
