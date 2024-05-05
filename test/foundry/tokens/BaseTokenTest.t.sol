@@ -11,14 +11,11 @@ import {MockERC20} from "../../../contracts/mock/MockERC20.sol";
 import {TaxToken} from "../../../contracts/tokens/TaxToken.sol";
 import {TaxShareToken} from "../../../contracts/tokens/TaxShareToken.sol";
 import {TaxBurnToken} from "../../../contracts/tokens/TaxBurnToken.sol";
-import {DemurrageToken} from "../../../contracts/tokens/DemurrageToken.sol";
 import {DividendToken} from "../../../contracts/tokens/DividendToken.sol";
 import {VaultToken} from "../../../contracts/tokens/VaultToken.sol";
-import {LotteryToken} from "../../../contracts/tokens/LotteryToken.sol";
 import {TokenFactory} from "../../../contracts/tokens/TokenFactory.sol";
 import {TokenFactory2} from "../../../contracts/tokens/TokenFactory2.sol";
 import {TokenFactory3} from "../../../contracts/tokens/TokenFactory3.sol";
-import {LotteryTokenMaster} from "../../../contracts/tokens/LotteryTokenMaster.sol";
 
 struct Users {
     address alice;
@@ -51,10 +48,7 @@ contract BaseTokenTest is Test {
     TokenFactory tokenFactory;
     Users users;
 
-    DemurrageToken demurrage;
     DividendToken dividend;
-    LotteryToken lottery;
-    LotteryTokenMaster lotteryMaster;
     TaxBurnToken taxburn;
     TaxShareToken taxshare;
     TaxToken plainTax;
