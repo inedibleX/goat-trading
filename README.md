@@ -1,39 +1,40 @@
-# <h1 align="center"> Hardhat-Foundry Template </h1>
-
-**Template repository for Hardhat and Foundry**
+# <h1 align="center">Goat Trading Dex Contracts</h1>
 
 ### Getting Started
 
-- Use Foundry:
+- Initial Setup
+	Create `.env` file and fill values using `.env.example`
 
 ```bash
-forge install
-forge test
+	npm install
+	forge install
+	forge remappings > remappings.txt # allows resolve libraries installed with forge or npm
 ```
 
-- Use Hardhat:
-
+- Test
 ```bash
-npm install
-npx hardhat test
+	forge test
 ```
 
-### Features
 
-- Write / run tests with either Hardhat or Foundry or Both:
+### Deployment
 
+- Check all contracts deployment to sepolia-base using makefile
 ```bash
-forge test
-# or
-npx hardhat test
-# or
-npm test (to run both)
+	make deploy_sepolia_base_check
 ```
 
-- Install libraries with Foundry which work with Hardhat.
-
+- Deploy all contracts to sepolia-base using makefile
 ```bash
-forge install transmissions11/solmate # Already in this repo, just an example
-# and
-forge remappings > remappings.txt # allows resolve libraries installed with forge or npm
+	make deploy_sepolia_base
+```
+
+- Check all contracts deployment to mainnet-base using makefile
+```bash
+	make deploy_mainnet_base_check
+```
+
+- Deploy all contracts to mainnet-base using makefile
+```bash
+	make deploy_mainnet_base
 ```
