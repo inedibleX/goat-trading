@@ -30,6 +30,13 @@ contract GoatHelper {
         }
     }
 
+    function getLpBalances(address[] memory pairs, address account) external view returns (uint256[] memory balances) {
+        balances = new uint256[](pairs.length);
+        for (uint256 i = 0; i < pairs.length; i++) {
+            balances[i] = IGoatV1Pair(pairs[i]).balanceOf(account);
+        }
+    }
+
     function getVestingUntil(address[] memory pairs) external view returns (uint256[] memory vestingUntils) {
         vestingUntils = new uint256[](pairs.length);
         uint256 length = pairs.length;
