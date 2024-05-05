@@ -35,7 +35,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
     address public immutable factory;
     uint32 private immutable _genesis;
-    // Figure out a way to use excess 12 bytes in here to store something
     address private _token;
     address private _weth;
 
@@ -74,6 +73,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         uint256 amountTokenOut,
         address indexed to
     );
+    event Sync(uint112 reserveEth, uint112 reserveToken);
 
     constructor() {
         factory = msg.sender;
@@ -161,7 +161,6 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             liquidity = Math.min((amountWeth * totalSupply_) / reserveEth, (amountToken * totalSupply_) / reserveToken);
         }
 
-        // @note can this be an attack area to grief initial lp by using to as initial lp?
         if (mintVars.isFirstMint || to == _initialLPInfo.liquidityProvider) {
             _updateInitialLpInfo(liquidity, balanceEth, to, false, false);
         }
@@ -244,6 +243,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * Security:
      * - Uses `nonReentrant` modifier to prevent reentrancy attacks.
      */
+    //  TODO: change the order or the arguments and natspec too
     function swap(uint256 amountTokenOut, uint256 amountWethOut, address to) external nonReentrant {
         if (amountTokenOut == 0 && amountWethOut == 0) {
             revert GoatErrors.InsufficientOutputAmount();
@@ -325,7 +325,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
 
         emit Swap(
             msg.sender,
-            swapVars.amountWethIn + swapVars.feesCollected,
+            swapVars.amountWethIn + (swapVars.isBuy ? swapVars.feesCollected : 0),
             swapVars.amountTokenIn,
             amountWethOut,
             amountTokenOut,
@@ -643,6 +643,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             _reserveEth = uint112(balanceEth);
         }
         _reserveToken = uint112(balanceToken);
+
+        emit Sync(_reserveEth + (_vestingUntil == _MAX_UINT32 ? _virtualEth : 0), _reserveToken);
     }
 
     /**
@@ -920,14 +922,38 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     }
 
     /* ----------------------------- VIEW FUNCTIONS ----------------------------- */
+
+    /**
+     * @notice Returns weth address as token0
+     */
+    function token0() external view returns (address token0) {
+        return _weth;
+    }
+
+    /**
+     * @notice Returns token address as token1
+     */
+    function token1() external view returns (address token1) {
+        _token;
+    }
+
+    /**
+     * @notice Calculates and returns amount of unclaimed fees of the liquidity provider
+     */
     function earned(address lp) external view returns (uint256) {
         return _earned(lp, feesPerTokenStored);
     }
 
+    /**
+     * @notice Timestamp when vesting will be lift off
+     */
     function vestingUntil() external view returns (uint32 vestingUntil_) {
         vestingUntil_ = _vestingUntil;
     }
 
+    /**
+     * @notice Returns pool details that are needed by the router
+     */
     function getStateInfoForPresale()
         external
         view
@@ -948,30 +974,51 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
         virtualToken = _getVirtualTokenAmt(virtualEth, bootstrapEth, initialTokenMatch);
     }
 
+    /**
+     * @notice Returns pool actual reserves
+     */
     function getStateInfoAmm() external view returns (uint112, uint112) {
         return (_reserveEth, _reserveToken);
     }
 
+    /**
+     * @notice Returns information of first lp who launched the pool
+     */
     function getInitialLPInfo() external view returns (GoatTypes.InitialLPInfo memory) {
         return _initialLPInfo;
     }
 
+    /**
+     * @notice Returns presale balance of the user
+     */
     function getPresaleBalance(address user) external view returns (uint256) {
         return _presaleBalances[user];
     }
 
+    /**
+     * @notice Returns liquidity locktime of the user
+     */
     function lockedUntil(address user) external view returns (uint32) {
         return _locked[user];
     }
 
+    /**
+     * @notice Returns fees per token stored for liquidity providers.
+     */
     function getFeesPerTokenStored() external view returns (uint256) {
         return feesPerTokenStored;
     }
 
+    /**
+     * @notice Returns amount liquidity fees that are collected but not collected yet.
+     */
     function getPendingLiquidityFees() external view returns (uint112) {
         return _pendingLiquidityFees;
     }
 
+    /**
+     * @notice Returns amount of protocol fees that has not been sent to treasury yet.
+     */
     function getPendingProtocolFees() external view returns (uint72) {
         return _pendingProtocolFees;
     }

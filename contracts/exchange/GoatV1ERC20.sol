@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
+
 /**
  * @title Goat Trading ERC20
  * @notice ERC20 token contract for the Goat Trading Pair contract.
  * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
  */
-
 abstract contract GoatV1ERC20 {
     // Token metadata
     uint256 private constant _TWO_DAYS = 2 days;

@@ -14,22 +14,46 @@ import {GoatErrors} from "../library/GoatErrors.sol";
  * @author Goat Trading -- Chiranjibi Poudyal, Robert M.C. Forster
  */
 contract GoatV1Factory {
+    /// @notice The address of the wrapped native token (e.g., WETH).
     address public immutable weth;
-    string private baseName;
+
+    /// @notice The name of wrapped native token. (e.g. Wrapped Ether)
+    string internal baseName;
+
+    /// @notice The address of the treasury.
     address public treasury;
+
+    /// @notice The address of the pending treasury.
     address public pendingTreasury;
-    mapping(address => address) public pools;
+
+    /// @notice Mapping of token addresses to their corresponding trading pair addresses.
+    mapping(address => address) internal pools;
+
+    /// @notice The minimum collectable fees in the native token (e.g., ETH).
     uint256 public minimumCollectableFees = 0.1 ether;
 
+    /// @notice Emitted when a new trading pair is created.
     event PairCreated(address indexed weth, address indexed token, address pair);
+
+    /// @notice Emitted when a trading pair is removed.
     event PairRemoved(address indexed token, address pair);
 
+    /**
+     * @notice Constructs the GoatV1Factory contract.
+     * @param _weth The address of the wrapped native token (e.g., WETH).
+     */
     constructor(address _weth) {
         weth = _weth;
         baseName = IERC20Metadata(_weth).name();
         treasury = msg.sender;
     }
 
+    /**
+     * @notice Creates a new trading pair contract.
+     * @param token The address of the token to pair with the wrapped native token.
+     * @param params The initialization parameters for the trading pair.
+     * @return The address of the newly created trading pair contract.
+     */
     function createPair(address token, GoatTypes.InitParams memory params) external returns (address) {
         if (params.bootstrapEth == 0 || params.virtualEth == 0 || params.initialTokenMatch == 0) {
             revert GoatErrors.InvalidParams();
@@ -47,6 +71,12 @@ contract GoatV1Factory {
         return address(pair);
     }
 
+    /* ----------------------------- PRIVILEGED FUNCTIONS ----------------------------- */
+
+    /**
+     * @notice Removes a trading pair contract.
+     * @param token The address of the token paired with the wrapped native token.
+     */
     function removePair(address token) external {
         address pair = pools[token];
         if (msg.sender != pair) {
@@ -57,10 +87,10 @@ contract GoatV1Factory {
         emit PairRemoved(token, pair);
     }
 
-    function getPool(address token) external view returns (address) {
-        return pools[token];
-    }
-
+    /**
+     * @notice Sets the pending treasury address.
+     * @param _pendingTreasury The address of the pending treasury.
+     */
     function setTreasury(address _pendingTreasury) external {
         if (msg.sender != treasury) {
             revert GoatErrors.Forbidden();
@@ -68,6 +98,9 @@ contract GoatV1Factory {
         pendingTreasury = _pendingTreasury;
     }
 
+    /**
+     * @notice Accepts the pending treasury address and updates the current treasury.
+     */
     function acceptTreasury() external {
         if (msg.sender != pendingTreasury) {
             revert GoatErrors.Forbidden();
@@ -76,10 +109,39 @@ contract GoatV1Factory {
         treasury = msg.sender;
     }
 
+    /**
+     * @notice Sets the minimum collectable fees.
+     * @param _minimumCollectibleFees The new minimum collectable fees value.
+     */
     function setFeeToTreasury(uint256 _minimumCollectibleFees) external {
         if (msg.sender != treasury) {
             revert GoatErrors.Forbidden();
         }
         minimumCollectableFees = _minimumCollectibleFees;
+    }
+
+    /* ----------------------------- VIEW FUNCTIONS ----------------------------- */
+
+    /**
+     * @notice Retrieves the address of the trading pair contract for a given token.
+     * @param token The address of the token paired with wrapped native token.
+     * @return The address of the trading pair contract.
+     */
+    function getPool(address token) external view returns (address) {
+        return pools[token];
+    }
+
+    /**
+     * @notice Retrives the address of pair contract (compatible with uni v2)
+     * @param token0 The address of the first token.
+     * @param token1 The address of the second token.
+     * @return pair The address of the trading pair contract.
+     */
+    function getPair(address token0, address token1) external view returns (address pair) {
+        if (token0 == weth) {
+            pair = pools[token1];
+        } else if (token1 == weth) {
+            pair = pools[token0];
+        }
     }
 }
