@@ -225,8 +225,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * @notice Executes a swap from ETH to tokens or tokens to ETH.
      * @dev This function handles the swapping logic, including MEV
      *  checks, fee application, and updating reserves.
-     * @param amountTokenOut The amount of tokens to be sent out.
      * @param amountWethOut The amount of WETH to be sent out.
+     * @param amountTokenOut The amount of tokens to be sent out.
      * @param to The address to receive the output of the swap.
      * Requirements:
      * - Either `amountTokenOut` or `amountWethOut` must be greater than 0, but not both.
@@ -243,8 +243,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
      * Security:
      * - Uses `nonReentrant` modifier to prevent reentrancy attacks.
      */
-    //  TODO: change the order or the arguments and natspec too
-    function swap(uint256 amountTokenOut, uint256 amountWethOut, address to) external nonReentrant {
+    function swap(uint256 amountWethOut, uint256 amountTokenOut, address to) external nonReentrant {
         if (amountTokenOut == 0 && amountWethOut == 0) {
             revert GoatErrors.InsufficientOutputAmount();
         }

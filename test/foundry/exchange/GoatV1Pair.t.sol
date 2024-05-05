@@ -545,7 +545,7 @@ contract GoatExchangeTest is Test {
         weth.deposit{value: wethWithFees}();
 
         weth.transfer(address(pair), wethWithFees);
-        pair.swap(amountTokenOut, amountWethOut, users.alice);
+        pair.swap(amountWethOut, amountTokenOut, users.alice);
         vm.stopPrank();
     }
 
@@ -573,7 +573,7 @@ contract GoatExchangeTest is Test {
         } else if (revertType == SwapRevertType.KInvariant) {
             vm.expectRevert(GoatErrors.KInvariant.selector);
         }
-        pair.swap(amountTokenOut, 0, to);
+        pair.swap(0, amountTokenOut, to);
         vm.stopPrank();
         return wethWithFees;
     }
@@ -588,7 +588,7 @@ contract GoatExchangeTest is Test {
         } else if (revertType == SwapRevertType.Mev2) {
             vm.expectRevert(GoatErrors.MevDetected2.selector);
         }
-        pair.swap(0, amountWethOut, to);
+        pair.swap(amountWethOut, 0, to);
         vm.stopPrank();
     }
 
@@ -677,7 +677,7 @@ contract GoatExchangeTest is Test {
         uint256 amountWeth = 10e18;
         uint256 wethAmtWithFees = (amountWeth * 10000) / 9901;
         weth.transfer(address(pair), wethAmtWithFees);
-        pair.swap(amountTokenOut, amountWethOut, users.alice);
+        pair.swap(amountWethOut, amountTokenOut, users.alice);
         vm.stopPrank();
         GoatTypes.InitialLPInfo memory initialLPInfoAfter = pair.getInitialLPInfo();
         lpBalance = pair.balanceOf(users.lp);
@@ -707,7 +707,7 @@ contract GoatExchangeTest is Test {
         uint256 amountWethOut = 0;
         vm.startPrank(users.alice);
         weth.transfer(address(pair), wethAmtWithFees);
-        pair.swap(amountTokenOut, amountWethOut, users.alice);
+        pair.swap(amountWethOut, amountTokenOut, users.alice);
         vm.stopPrank();
 
         uint256 lpLiquidityBalanceAfter = pair.balanceOf(users.lp);
@@ -768,7 +768,7 @@ contract GoatExchangeTest is Test {
         uint256 actualWethWithFees = (actualWeth * 10000) / 9901;
 
         weth.transfer(address(pair), actualWethWithFees);
-        pair.swap(amountTokenOut, amountWethOut, users.alice);
+        pair.swap(amountWethOut, amountTokenOut, users.alice);
         vm.stopPrank();
 
         // Since the pool has turned to an Amm now, the reserves are real.
@@ -807,7 +807,7 @@ contract GoatExchangeTest is Test {
     //     goat.transfer(address(pair), 100e18);
     //     // As there is no eth in the pair contract this should revert
     //     vm.expectRevert(GoatErrors.InsufficientAmountOut.selector);
-    //     pair.swap(0, 1e18, users.alice);
+    //     pair.swap( 1e18, 0,users.alice);
     //     vm.stopPrank();
 
     //     // Now let's add some eth to the pair contract
@@ -815,14 +815,14 @@ contract GoatExchangeTest is Test {
     //     vm.deal(users.alice, 10e18);
     //     weth.deposit{value: 10e18}();
     //     weth.transfer(address(pair), 5e18);
-    //     pair.swap(330e18, 0, users.alice);
+    //     pair.swap( 0, 330e18,users.alice);
     //     vm.stopPrank();
 
     //     _fundMe(goat, users.bob, 100e18);
     //     vm.startPrank(users.bob);
     //     goat.transfer(address(pair), 100e18);
     //     vm.expectRevert();
-    //     pair.swap(0, 1e18, users.bob);
+    //     pair.swap( 1e18, 0,users.bob);
     //     vm.stopPrank();
     // }
 
@@ -961,7 +961,7 @@ contract GoatExchangeTest is Test {
         vm.deal(users.alice, wethAmountWithFees);
         weth.deposit{value: wethAmountWithFees}();
         weth.transfer(address(pair), wethAmountWithFees);
-        pair.swap(expectedTokenOut, 0, users.alice);
+        pair.swap(0, expectedTokenOut, users.alice);
         vm.stopPrank();
 
         uint256 tresauryBalAfter = weth.balanceOf(users.treasury);
@@ -987,7 +987,7 @@ contract GoatExchangeTest is Test {
         vm.deal(users.alice, wethAmountWithFees);
         weth.deposit{value: wethAmountWithFees}();
         weth.transfer(address(pair), wethAmountWithFees);
-        pair.swap(expectedTokenOut, 0, users.alice);
+        pair.swap(0, expectedTokenOut, users.alice);
         vm.stopPrank();
 
         uint256 warpTime = block.timestamp + 32 days;
@@ -1476,7 +1476,7 @@ contract GoatExchangeTest is Test {
         vm.deal(users.alice, wethAmountWithFees);
         weth.deposit{value: wethAmountWithFees}();
         weth.transfer(address(pair), wethAmountWithFees);
-        pair.swap(expectedTokenOut, 0, users.alice);
+        pair.swap(0, expectedTokenOut, users.alice);
         vm.stopPrank();
         (uint256 reserveWethBefore, uint256 reserveTokenBefore) = pair.getStateInfoAmm();
 
@@ -1587,7 +1587,7 @@ contract GoatExchangeTest is Test {
         vm.deal(users.alice, wethAmountWithFees);
         weth.deposit{value: wethAmountWithFees}();
         weth.transfer(address(pair), wethAmountWithFees);
-        pair.swap(expectedTokenOut, 0, users.alice);
+        pair.swap(0, expectedTokenOut, users.alice);
         vm.stopPrank();
         // As we are using tx.origin to store presale balances I am checking balance of msg.sender
         presaleBalance = pair.getPresaleBalance(msg.sender);
@@ -1630,7 +1630,7 @@ contract GoatExchangeTest is Test {
 
             vm.startPrank(users.alice);
             weth.transfer(address(pair), amountWethIn);
-            pair.swap(amountTokenOut, 0, users.alice);
+            pair.swap(0, amountTokenOut, users.alice);
             vm.stopPrank();
         }
     }
@@ -1667,7 +1667,7 @@ contract GoatExchangeTest is Test {
             );
             vm.startPrank(users.alice);
             weth.transfer(address(pair), amountWethIn);
-            pair.swap(amountTokenOut, 0, users.alice);
+            pair.swap(0, amountTokenOut, users.alice);
             vm.stopPrank();
         }
     }

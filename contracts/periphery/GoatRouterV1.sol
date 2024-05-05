@@ -285,7 +285,7 @@ contract GoatV1Router {
         GoatV1Pair pair;
         (amountTokenOut, pair) = _getAmountTokenOut(amountIn, amountOutMin, token);
         IERC20(WETH).safeTransferFrom(msg.sender, address(pair), amountIn);
-        pair.swap(amountTokenOut, ZERO, to);
+        pair.swap(ZERO, amountTokenOut, to);
     }
 
     function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline)
@@ -302,7 +302,7 @@ contract GoatV1Router {
         (amountTokenOut, pair) = _getAmountTokenOut(msg.value, amountOutMin, path[1]);
         IWETH(WETH).deposit{value: msg.value}();
         IERC20(WETH).safeTransfer(address(pair), msg.value);
-        pair.swap(amountTokenOut, 0, to);
+        pair.swap(0, amountTokenOut, to);
     }
 
     function swapExactTokensForWeth(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
@@ -316,7 +316,7 @@ contract GoatV1Router {
         GoatV1Pair pair;
         (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
-        pair.swap(0, amountWethOut, to);
+        pair.swap(amountWethOut, 0, to);
     }
 
     function swapExactTokensForETH(uint256 amountIn, uint256 amountOutMin, address token, address to, uint256 deadline)
@@ -330,7 +330,7 @@ contract GoatV1Router {
         GoatV1Pair pair;
         (amountWethOut, pair) = _getAmountWethOut(amountIn, amountOutMin, token);
         IERC20(token).safeTransferFrom(msg.sender, address(pair), amountIn);
-        pair.swap(0, amountWethOut, address(this));
+        pair.swap(amountWethOut, 0, address(this));
 
         uint256 amountOut = IWETH(WETH).balanceOf(address(this));
         IWETH(WETH).withdraw(amountOut);
@@ -371,7 +371,7 @@ contract GoatV1Router {
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
             : _getAmountWethOut(amountInput, amountOutMin, token);
-        pair.swap(isWethIn ? amountOutput : 0, isWethIn ? 0 : amountOutput, to);
+        pair.swap(isWethIn ? 0 : amountOutput, isWethIn ? amountOutput : 0, to);
     }
 
     function _addLiquidity(
