@@ -48,11 +48,23 @@ contract DeployAll is Script {
             1000,
             GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
         );
+        // create taxshare token
+        (address plainToken, address pairPlainToken) = tokenFactory.createToken(
+            "PlainToken-Test",
+            "PTT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.PLAIN,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
 
         // create taxshare token
         (address taxshareToken, address pairTaxShareToken) = tokenFactory2.createToken(
-            "TaxShareToken",
-            "TST1",
+            "TaxShare-Test",
+            "TST",
             1e21,
             100,
             100,
@@ -63,8 +75,8 @@ contract DeployAll is Script {
         );
         // create taxburn token
         (address taxburnToken, address pairTaxBurnToken) = tokenFactory2.createToken(
-            "TaxBurnToken",
-            "TBT1",
+            "TaxBurn-Test",
+            "TBT",
             1e21,
             100,
             100,
@@ -76,8 +88,8 @@ contract DeployAll is Script {
 
         // create vault token
         (address vaultToken, address pairVaultToken) = tokenFactory3.createToken(
-            "VaultToken",
-            "VT1",
+            "VaultToken-Test",
+            "VTT",
             1e21,
             100,
             100,
@@ -89,8 +101,8 @@ contract DeployAll is Script {
 
         // create dividend token
         (address dividendToken, address pairDividendToken) = tokenFactory3.createToken(
-            "DividendToken",
-            "DT1",
+            "DividendToken-Test",
+            "DTT",
             1e21,
             100,
             100,
@@ -100,12 +112,123 @@ contract DeployAll is Script {
             GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
         );
 
+        console2.log("PlainToken address: ", plainToken);
         console2.log("TaxToken address: ", taxToken);
         console2.log("TaxShareToken address: ", taxshareToken);
         console2.log("TaxBurnToken address: ", taxburnToken);
         console2.log("VaultToken address: ", vaultToken);
         console2.log("DividendToken address: ", dividendToken);
 
+        console2.log("PairPlainToken address: ", pairPlainToken);
+        console2.log("PairTaxToken address: ", pairTaxToken);
+        console2.log("PairTaxShareToken address: ", pairTaxShareToken);
+        console2.log("PairTaxBurnToken address: ", pairTaxBurnToken);
+        console2.log("PairVaultToken address: ", pairVaultToken);
+        console2.log("PairDividendToken address: ", pairDividendToken);
+
+        vm.stopBroadcast();
+    }
+}
+
+contract DeployTokenFactories is Script {
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        vm.startBroadcast(deployerPrivateKey);
+
+        address _WETH = 0x4200000000000000000000000000000000000006;
+        address factory = 0x991DE6Bdc788BB0bA5594ed7fbF9f4F52711D3F4;
+
+        TokenFactory tokenFactory = new TokenFactory(address(factory), _WETH);
+        TokenFactory2 tokenFactory2 = new TokenFactory2(address(factory), _WETH);
+        TokenFactory3 tokenFactory3 = new TokenFactory3(address(factory), _WETH);
+        console2.log("TokenFactory address: ", address(tokenFactory));
+        console2.log("TokenFactory2 address: ", address(tokenFactory2));
+        console2.log("TokenFactory3 address: ", address(tokenFactory3));
+
+        // create tokens
+        (address taxToken, address pairTaxToken) = tokenFactory.createToken(
+            "TaxToken-Test",
+            "TTT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.TAX,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+        // create taxshare token
+        (address plainToken, address pairPlainToken) = tokenFactory.createToken(
+            "PlainToken-Test",
+            "PTT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.PLAIN,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+
+        // create taxshare token
+        (address taxshareToken, address pairTaxShareToken) = tokenFactory2.createToken(
+            "TaxShare-Test",
+            "TST",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.TAXSHARE,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+        // create taxburn token
+        (address taxburnToken, address pairTaxBurnToken) = tokenFactory2.createToken(
+            "TaxBurn-Test",
+            "TBT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.TAXBURN,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+
+        // create vault token
+        (address vaultToken, address pairVaultToken) = tokenFactory3.createToken(
+            "VaultToken-Test",
+            "VTT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.VAULT,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+
+        // create dividend token
+        (address dividendToken, address pairDividendToken) = tokenFactory3.createToken(
+            "DividendToken-Test",
+            "DTT",
+            1e21,
+            100,
+            100,
+            0xF5265544F4072692409Bd41267679dd548489d42,
+            TokenType.DIVIDEND,
+            1000,
+            GoatTypes.InitParams(10e18, 10e18, 0, 1000e18)
+        );
+
+        console2.log("PlainToken address: ", plainToken);
+        console2.log("TaxToken address: ", taxToken);
+        console2.log("TaxShareToken address: ", taxshareToken);
+        console2.log("TaxBurnToken address: ", taxburnToken);
+        console2.log("VaultToken address: ", vaultToken);
+        console2.log("DividendToken address: ", dividendToken);
+
+        console2.log("PairPlainToken address: ", pairPlainToken);
         console2.log("PairTaxToken address: ", pairTaxToken);
         console2.log("PairTaxShareToken address: ", pairTaxShareToken);
         console2.log("PairTaxBurnToken address: ", pairTaxBurnToken);
