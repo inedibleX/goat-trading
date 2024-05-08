@@ -25,7 +25,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
 
     mapping(address => uint256) public userRewardPerTokenPaid;
     mapping(address => uint256) public rewards;
-    mapping(address => bool) public blacklisted;
+    mapping(address => bool) public revoked;
 
     event RewardAdded(uint256 reward);
     event RewardPaid(address indexed user, uint256 reward);
@@ -79,14 +79,14 @@ contract DividendToken is TaxToken, ReentrancyGuard {
 
     /**
      * @notice Update the rewards of an address.
-     * @dev Does not update address 0 or blacklisted addresses. Only global updates for those.
+     * @dev Does not update address 0 or revoked addresses. Only global updates for those.
      * @param account The account to update the rewards of. address(0) if only global updates are needed.
      *
      */
     function _updateRewards(address account) internal {
         rewardPerTokenStored = _rewardPerToken();
         lastUpdateTime = _lastTimeRewardApplicable();
-        if (account != address(0) && !blacklisted[account]) {
+        if (account != address(0) && !revoked[account]) {
             rewards[account] = earned(account);
             userRewardPerTokenPaid[account] = rewardPerTokenStored;
         }
@@ -159,7 +159,7 @@ contract DividendToken is TaxToken, ReentrancyGuard {
     }
 
     /**
-     * @notice Withdraw Eth to owner. Should primarily be used to withdraw allocations that would otherwise go to blacklisted addresses.
+     * @notice Withdraw Eth to owner. Should primarily be used to withdraw allocations that would otherwise go to revoked addresses.
      * @param _amount Amount of Ether (in Wei) to withdraw.
      * @param _to The address to withdraw Ether to.
      *
@@ -170,14 +170,14 @@ contract DividendToken is TaxToken, ReentrancyGuard {
     }
 
     /**
-     * @notice Blacklist an address, such as a dex, from receiving rewards. A little bit weird cause
+     * @notice Revoke an address, such as a dex, from receiving rewards. A little bit weird cause
      *         these rewards will just be sitting in the contract after that, but they can be withdrawn
      *         by the owners.
-     * @param _user Address to blacklist.
-     * @param _blacklisted True if you want to blacklist the user, false to remove user from blacklist.
+     * @param _user Address to revoke.
+     * @param _revoked True if you want to revoke the user, false to grant the user.
      *
      */
-    function blacklistAddress(address _user, bool _blacklisted) external onlyOwnerOrTreasury {
-        blacklisted[_user] = _blacklisted;
+    function revokeRewardsEligibility(address _user, bool _revoked) external onlyOwnerOrTreasury {
+        revoked[_user] = _revoked;
     }
 }

@@ -54,7 +54,7 @@ contract DividendTokenTest is BaseTokenTest {
         assertEq(dividend.name(), tokenName);
         assertEq(dividend.symbol(), tokenSymbol);
         assertEq(dividend.rewarder(), address(0));
-        assertEq(dividend.blacklisted(pair), true);
+        assertEq(dividend.revoked(pair), true);
     }
 
     function testDividendChangeRewarder() public {
@@ -118,7 +118,7 @@ contract DividendTokenTest is BaseTokenTest {
         assertEq(dividend.periodFinish(), block.timestamp + dripInSeconds);
     }
 
-    function testBlackListAddress() public {
+    function testRevokeRewardsAddress() public {
         GoatTypes.InitParams memory initParams;
         initParams.initialEth = 0;
         initParams.bootstrapEth = 10e18;
@@ -128,18 +128,18 @@ contract DividendTokenTest is BaseTokenTest {
         createTokenAndAddLiquidity(initParams, RevertType.None);
 
         vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
-        dividend.blacklistAddress(users.alice, true);
+        dividend.revokeRewardsEligibility(users.alice, true);
 
-        assertEq(dividend.blacklisted(users.alice), false);
+        assertEq(dividend.revoked(users.alice), false);
         vm.startPrank(users.owner);
-        dividend.blacklistAddress(users.alice, true);
+        dividend.revokeRewardsEligibility(users.alice, true);
         vm.stopPrank();
 
-        assertEq(dividend.blacklisted(users.alice), true);
+        assertEq(dividend.revoked(users.alice), true);
         vm.startPrank(users.owner);
-        dividend.blacklistAddress(users.alice, false);
+        dividend.revokeRewardsEligibility(users.alice, false);
         vm.stopPrank();
-        assertEq(dividend.blacklisted(users.alice), false);
+        assertEq(dividend.revoked(users.alice), false);
     }
 
     function testWithdrawEthByOwnerOrTreasury() public {
