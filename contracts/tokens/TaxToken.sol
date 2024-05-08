@@ -157,8 +157,8 @@ contract TaxToken is ERC20, Ownable {
         path[1] = _WETH;
 
         // Try/catch because this will revert on buy txns because of reentrancy
-        try IGoatV1Router(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-            tokens, 0, address(this), treasury, block.timestamp
+        try IGoatV1Router(dex).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            tokens, 0, path, treasury, block.timestamp
         ) {} catch (bytes memory) {
             // if pool is not in presale don't transfer tax tokens to the treasury
             // transfer tax tokens to treasury sell of tax tokens fail

@@ -82,8 +82,8 @@ contract VaultToken is TaxToken {
         path[1] = _WETH;
 
         // Try/catch because this will revert on buy txns because of reentrancy
-        try IGoatV1Router(dex).swapExactTokensForWethSupportingFeeOnTransferTokens(
-            tokens, 0, token, token, block.timestamp
+        try IGoatV1Router(dex).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            tokens, 0, path, token, block.timestamp
         ) {
             uint256 ethValue = IWETH(_WETH).balanceOf(address(this));
             IWETH(_WETH).withdraw(ethValue);
