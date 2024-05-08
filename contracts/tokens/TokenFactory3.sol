@@ -83,7 +83,7 @@ contract TokenFactory3 {
 
         token.setTaxes(pool, _buyTax, _sellTax);
         if (_type == TokenType.DIVIDEND) {
-            token.blacklistAddress(pool, true);
+            token.revokeRewardsEligibility(pool, true);
         }
 
         token.transferTreasury(_owner);
