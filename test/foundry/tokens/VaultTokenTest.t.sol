@@ -76,7 +76,7 @@ contract VaultTokenTest is BaseTokenTest {
         uint256 dexBal = vault.balanceOf(users.dex);
         uint256 tax = transferAmount * 200 / 10000;
         assertEq(transferAmount, dexBal + tax);
-        assertEq(vault.balanceOf(users.treasury), tax);
+        assertEq(vault.balanceOf(address(vault)), tax);
     }
 
     function testVaultTaxCollectAndSellTaxTokenForEth() public {

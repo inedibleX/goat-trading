@@ -12,6 +12,8 @@ import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/library/TokenErrors.sol";
 
+import {console2} from "forge-std/console2.sol";
+
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
 // 2. Adjustment of all variables works correctly
@@ -233,33 +235,37 @@ contract TaxTokenTest is BaseTokenTest {
         plainTax.transfer(users.dex, transferAmount);
         vm.stopPrank();
 
-        uint256 expectedTax = transferAmount * 200 / 10000;
+        uint256 expectedTaxBefore = transferAmount * 200 / 10000;
 
         assertEq(
             plainTax.balanceOf(users.dex),
-            transferAmount - expectedTax,
+            transferAmount - expectedTaxBefore,
             "Dex balance should be transfer amount minus tax"
         );
 
-        // as the the above transfer txn is assumed as sell txn so treasury should get the tax amount
-        uint256 taxCollectedbal = plainTax.balanceOf(users.treasury);
-        assertEq(taxCollectedbal, expectedTax, "Treasury should hold the taxes of failed sell txn");
+        // as the the above transfer txn is assumed as sell txn so tax should be in the token contract
+        uint256 taxCollectedbal = plainTax.balanceOf(address(plainTax));
+        assertEq(taxCollectedbal, expectedTaxBefore, "Contract should hold the taxes of failed sell txn");
         vm.warp(block.timestamp + 2);
         transferAmount = 5e18;
         vm.startPrank(users.dex);
         plainTax.transfer(users.bob, transferAmount);
         vm.stopPrank();
 
-        expectedTax = transferAmount * 200 / 10000;
+        uint256 expectedTaxAfter = transferAmount * 200 / 10000;
 
         assertEq(
             plainTax.balanceOf(users.bob),
-            transferAmount - expectedTax,
+            transferAmount - expectedTaxAfter,
             "Dex balance should be transfer amount minus tax"
         );
 
         // as the last transfer txn is assumed as buy txn the tax should remain in contract
-        assertEq(plainTax.balanceOf(address(plainTax)), expectedTax, "Contract should hold the taxes of buy txn");
+        assertEq(
+            plainTax.balanceOf(address(plainTax)),
+            expectedTaxAfter + expectedTaxBefore,
+            "Contract should hold the taxes of buy txn"
+        );
     }
 
     function testPlainTaxOnTransfers() public {
@@ -310,6 +316,81 @@ contract TaxTokenTest is BaseTokenTest {
         aliceBalAfter = plainTax.balanceOf(users.alice);
 
         assertEq(aliceBalAfter - aliceBalBefore, bobBalAfter, "Alice balance diff should be bob's balance");
+    }
+
+    function testWithdrawFeesRevertOnNotOwnerOrTreasury() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.alice, 100, 100);
+        plainTax.transferTreasury(users.treasury);
+        plainTax.changeDex(address(router));
+        vm.stopPrank();
+        uint256 amount = 10e18;
+        vm.startPrank(users.owner);
+        plainTax.transfer(users.alice, amount);
+        uint256 tax = amount * 100 / 10000;
+        vm.stopPrank();
+        // tax amount should stay in the contract as fees cannot be sold right now to
+        // the router
+        assertEq(tax, plainTax.balanceOf(address(plainTax)), "Contract should hold the tax amount");
+
+        vm.startPrank(users.bob);
+        vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
+        plainTax.withdrawTaxes(tax);
+        vm.stopPrank();
+    }
+
+    function testWithdrawFeesSuccess() public {
+        GoatTypes.InitParams memory initParams;
+        initParams.bootstrapEth = 10e18;
+        initParams.initialEth = 0;
+        initParams.initialTokenMatch = 1000e18;
+        initParams.virtualEth = 10e18;
+
+        createTokenAndAddLiquidity(initParams, RevertType.None);
+
+        vm.startPrank(users.owner);
+        plainTax.setTaxes(users.alice, 100, 100);
+        plainTax.transferTreasury(users.treasury);
+        plainTax.changeDex(address(router));
+        vm.stopPrank();
+        uint256 amount = 10e18;
+        vm.startPrank(users.owner);
+        plainTax.transfer(users.alice, amount);
+        uint256 tax = amount * 100 / 10000;
+        vm.stopPrank();
+        // tax amount should stay in the contract as fees cannot be sold right now to
+        // the router
+        assertEq(tax, plainTax.balanceOf(address(plainTax)), "Contract should hold the tax amount");
+
+        uint256 treasuryBalBefore = plainTax.balanceOf(users.treasury);
+        // Owner should be allowed to withdraw taxes
+        vm.startPrank(users.owner);
+        plainTax.withdrawTaxes(tax);
+        vm.stopPrank();
+        uint256 treasuryBalAfter = plainTax.balanceOf(users.treasury);
+
+        assertEq(treasuryBalAfter - treasuryBalBefore, tax, "Treasury should recieve tax amount");
+
+        amount = 20e18;
+        vm.startPrank(users.owner);
+        plainTax.transfer(users.alice, amount);
+        tax = amount * 100 / 10000;
+        vm.stopPrank();
+        treasuryBalBefore = treasuryBalAfter;
+        // Treasury should be allowed to withdraw taxes
+        vm.startPrank(users.treasury);
+        plainTax.withdrawTaxes(tax);
+        vm.stopPrank();
+        treasuryBalAfter = plainTax.balanceOf(users.treasury);
+        assertEq(treasuryBalAfter - treasuryBalBefore, tax, "Treasury should recieve tax amount");
     }
 
     function testContractLockOnDexAddressCodeSizeZero() public {
