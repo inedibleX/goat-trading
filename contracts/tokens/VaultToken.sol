@@ -62,8 +62,8 @@ contract VaultToken is TaxToken {
 
         // if taxes have been collected before from buy txns we don't want
         // huge slippage to occur because of tax dump. We only
-        // allow 2X tax amount to be sold per transaction
-        tokens = tokens * 2;
+        // allow 3X tax amount to be sold per transaction
+        tokens = tokens * 3;
 
         if (balance < tokens) {
             tokens = balance;
@@ -91,10 +91,7 @@ contract VaultToken is TaxToken {
             uint256 ethForVault = ethValue * vaultPercent / _DIVISOR;
             vaultEth += ethForVault;
             payable(treasury).transfer(ethValue - ethForVault);
-        } catch (bytes memory) {
-            // transfer tax tokens to treasury sell of tax tokens fail
-            _transfer(address(this), treasury, tokens);
-        }
+        } catch (bytes memory) {}
     }
 
     /**

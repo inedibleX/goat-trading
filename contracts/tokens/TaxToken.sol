@@ -139,8 +139,8 @@ contract TaxToken is ERC20, Ownable {
 
         // if taxes have been collected before from buy txns we don't want
         // huge slippage to occur because of tax dump. We only
-        // allow 2X tax amount to be sold per transaction
-        tokens = tokens * 2;
+        // allow 3X tax amount to be sold per transaction
+        tokens = tokens * 3;
 
         if (tokens > balance) {
             tokens = balance;
@@ -159,14 +159,17 @@ contract TaxToken is ERC20, Ownable {
         // Try/catch because this will revert on buy txns because of reentrancy
         try IGoatV1Router(dex).swapExactTokensForTokensSupportingFeeOnTransferTokens(
             tokens, 0, path, treasury, block.timestamp
-        ) {} catch (bytes memory) {
-            // if pool is not in presale don't transfer tax tokens to the treasury
-            // transfer tax tokens to treasury sell of tax tokens fail
-            _transfer(address(this), treasury, tokens);
-        }
+        ) {} catch (bytes memory) {}
     }
 
     /* ********************************************* ONLY OWNER/TREASURY ********************************************* */
+    /**
+     * @notice Allows the owner or treasury to withdraw stuck fees from the contract.
+     * @param _amount The amount of tokens to withdraw.
+     */
+    function withdrawTaxes(uint256 _amount) external onlyOwnerOrTreasury {
+        _transfer(address(this), treasury, _amount);
+    }
 
     /**
      * @dev We need treasury to have permissions along with owner so that adjustments that need to always be there
