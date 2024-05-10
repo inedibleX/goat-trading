@@ -56,6 +56,24 @@ contract GoatHelper {
         }
     }
 
+    function getLockedLiquidityPercentages(address[] memory pairs)
+        external
+        view
+        returns (uint32[] memory percentages)
+    {
+        percentages = new uint32[](pairs.length);
+        address initialLp;
+        uint256 initialLpBalance;
+        uint256 totalSupply;
+
+        for (uint256 i = 0; i < pairs.length; i++) {
+            initialLp = IGoatV1Pair(pairs[i]).getInitialLPInfo().liquidityProvider;
+            initialLpBalance = IGoatV1Pair(pairs[i]).balanceOf(initialLp);
+            totalSupply = IGoatV1Pair(pairs[i]).totalSupply();
+            percentages[i] = uint32((((initialLpBalance * _DIVISOR) / totalSupply)));
+        }
+    }
+
     function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint256[] memory amounts) {
         address token;
         bool isSell;
@@ -133,4 +151,5 @@ contract GoatHelper {
             }
         }
     }
+    // TODO: implement getAmountsIn
 }
