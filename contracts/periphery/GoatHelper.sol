@@ -19,7 +19,7 @@ contract GoatHelper {
 
     constructor(address router) {
         _ROUTER = router;
-        _FACTORY = IGoatV1Router(router).FACTORY();
+        _FACTORY = IGoatV1Router(router).factory();
         _WETH = IGoatV1Router(router).WETH();
     }
 

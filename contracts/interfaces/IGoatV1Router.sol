@@ -5,7 +5,7 @@ import {GoatTypes} from "./../library/GoatTypes.sol";
 
 interface IGoatV1Router {
     function WETH() external view returns (address);
-    function FACTORY() external view returns (address);
+    function factory() external view returns (address);
 
     /* ----------------------------- ADD LIQUIDITY ----------------------------- */
 
