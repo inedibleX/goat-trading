@@ -24,7 +24,7 @@ import {IWETH} from "../interfaces/IWETH.sol";
 contract GoatV1Router {
     using SafeERC20 for IERC20;
 
-    address public immutable FACTORY;
+    address public immutable factory;
     address public immutable WETH;
     uint32 private constant MAX_UINT32 = type(uint32).max;
     uint8 private constant ZERO = 0;
@@ -36,8 +36,8 @@ contract GoatV1Router {
         _;
     }
 
-    constructor(address factory, address weth) {
-        FACTORY = factory;
+    constructor(address factory_, address weth) {
+        factory = factory_;
         WETH = weth;
     }
 
@@ -115,7 +115,7 @@ contract GoatV1Router {
         address to,
         uint256 deadline
     ) public ensure(deadline) returns (uint256 amountWeth, uint256 amountToken) {
-        address pair = GoatV1Factory(FACTORY).getPool(token);
+        address pair = GoatV1Factory(factory).getPool(token);
 
         IERC20(pair).safeTransferFrom(msg.sender, pair, liquidity);
         (amountWeth, amountToken) = GoatV1Pair(pair).burn(to);
@@ -188,7 +188,7 @@ contract GoatV1Router {
         address to,
         uint256 deadline
     ) public ensure(deadline) {
-        IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
+        IERC20(WETH).safeTransferFrom(msg.sender, address(GoatV1Factory(factory).getPool(token)), amountIn);
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, true);
     }
 
@@ -203,7 +203,7 @@ contract GoatV1Router {
         }
 
         IWETH(WETH).deposit{value: msg.value}();
-        IERC20(WETH).safeTransfer(address(GoatV1Factory(FACTORY).getPool(path[1])), msg.value);
+        IERC20(WETH).safeTransfer(address(GoatV1Factory(factory).getPool(path[1])), msg.value);
         _swapSupportingFeeOnTransferTokens(msg.value, amountOutMin, path[1], to, true);
     }
 
@@ -214,9 +214,10 @@ contract GoatV1Router {
         address to,
         uint256 deadline
     ) public ensure(deadline) {
-        uint256 poolBalBefore = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
-        IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
-        uint256 poolBalAfter = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
+        address pair = address(GoatV1Factory(factory).getPool(token));
+        uint256 poolBalBefore = IERC20(token).balanceOf(pair);
+        IERC20(token).safeTransferFrom(msg.sender, pair, amountIn);
+        uint256 poolBalAfter = IERC20(token).balanceOf(pair);
         amountIn = poolBalAfter - poolBalBefore;
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, to, false);
     }
@@ -228,9 +229,10 @@ contract GoatV1Router {
         address to,
         uint256 deadline
     ) external ensure(deadline) {
-        uint256 poolBalBefore = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
-        IERC20(token).safeTransferFrom(msg.sender, address(GoatV1Factory(FACTORY).getPool(token)), amountIn);
-        uint256 poolBalAfter = IERC20(token).balanceOf(address(GoatV1Factory(FACTORY).getPool(token)));
+        address pair = address(GoatV1Factory(factory).getPool(token));
+        uint256 poolBalBefore = IERC20(token).balanceOf(pair);
+        IERC20(token).safeTransferFrom(msg.sender, pair, amountIn);
+        uint256 poolBalAfter = IERC20(token).balanceOf(address(pair));
         amountIn = poolBalAfter - poolBalBefore;
         _swapSupportingFeeOnTransferTokens(amountIn, amountOutMin, token, address(this), false);
         uint256 amountOut = IWETH(WETH).balanceOf(address(this));
@@ -342,7 +344,7 @@ contract GoatV1Router {
         if (to == address(0)) {
             revert GoatErrors.ZeroAddress();
         }
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
 
         if (address(pair) == address(0)) {
             revert GoatErrors.GoatPoolDoesNotExist();
@@ -358,8 +360,9 @@ contract GoatV1Router {
         address to,
         bool isWethIn
     ) internal {
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
-        // We need a real reserves here even in presale, we use getStateInfoAmm
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
+        // Even though we have checked the balance before we need to user amount inupt
+        // as the balance might have changed due to sell of taxes
         (, uint112 reserveToken) = pair.getStateInfoAmm();
         uint256 amountInput;
         if (isWethIn) {
@@ -367,7 +370,6 @@ contract GoatV1Router {
         } else {
             amountInput = IERC20(token).balanceOf(address(pair)) - reserveToken;
         }
-
         (uint256 amountOutput,) = isWethIn
             ? _getAmountTokenOut(amountInput, amountOutMin, token)
             : _getAmountWethOut(amountInput, amountOutMin, token);
@@ -383,10 +385,10 @@ contract GoatV1Router {
         GoatTypes.InitParams memory initParams
     ) internal returns (uint256, uint256, bool) {
         GoatTypes.LocalVariables_AddLiquidity memory vars;
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
         if (address(pair) == address(0)) {
             // First time liquidity provider
-            pair = GoatV1Pair(GoatV1Factory(FACTORY).createPair(token, initParams));
+            pair = GoatV1Pair(GoatV1Factory(factory).createPair(token, initParams));
             vars.isNewPair = true;
         }
 
@@ -458,7 +460,7 @@ contract GoatV1Router {
         if (isEth && wethDesired != vars.wethAmount) {
             revert GoatErrors.InvalidEthAmount();
         }
-        vars.pair = GoatV1Factory(FACTORY).getPool(vars.token);
+        vars.pair = GoatV1Factory(factory).getPool(vars.token);
     }
 
     function _getAmountTokenOut(uint256 amountIn, uint256 amountOutMin, address token)
@@ -470,7 +472,7 @@ contract GoatV1Router {
             revert GoatErrors.InsufficientInputAmount();
         }
         GoatTypes.LocalVariables_PairStateInfo memory vars;
-        pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
         if (address(pair) == address(0)) {
             revert GoatErrors.GoatPoolDoesNotExist();
         }
@@ -518,7 +520,7 @@ contract GoatV1Router {
         returns (uint256 amountWethOut, GoatV1Pair pair)
     {
         GoatTypes.LocalVariables_PairStateInfo memory vars;
-        pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
         if (pair == GoatV1Pair(address(0))) {
             revert GoatErrors.GoatPoolDoesNotExist();
         }
@@ -593,7 +595,7 @@ contract GoatV1Router {
 
     function getTokenAmountIn(uint256 wethAmountOut, address token) public view returns (uint256 tokenAmountIn) {
         GoatTypes.LocalVariables_PairStateInfo memory vars;
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
         if (address(pair) == address(0)) {
             revert GoatErrors.GoatPoolDoesNotExist();
         }
@@ -613,7 +615,7 @@ contract GoatV1Router {
 
     function getWethAmountIn(uint256 tokenAmountOut, address token) public view returns (uint256 wethAmountIn) {
         GoatTypes.LocalVariables_PairStateInfo memory vars;
-        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(FACTORY).getPool(token));
+        GoatV1Pair pair = GoatV1Pair(GoatV1Factory(factory).getPool(token));
         if (address(pair) == address(0)) {
             revert GoatErrors.GoatPoolDoesNotExist();
         }

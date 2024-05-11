@@ -16,7 +16,7 @@ contract GoatV1RouterTest is BaseTest {
     uint256 constant SEVEN_DAYS = 7 days;
 
     function testConstructor() public {
-        assertEq(address(router.FACTORY()), address(factory));
+        assertEq(address(router.factory()), address(factory));
         assertEq(address(router.WETH()), address(weth));
     }
 
