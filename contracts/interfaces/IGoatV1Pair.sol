@@ -19,7 +19,7 @@ interface IGoatV1Pair is IERC20 {
 
     function sync() external;
 
-    function getReserves() external view returns (uint112 reserveEth, uint112 reserveToken);
+    function getReserves() external view returns (uint112 reserveEth, uint112 reserveToken, uint32 lastTimestamp);
 
     function withdrawExcessToken() external;
 

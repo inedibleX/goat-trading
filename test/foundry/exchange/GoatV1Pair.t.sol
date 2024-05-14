@@ -137,7 +137,7 @@ contract GoatExchangeTest is Test {
 
         uint256 initialLpBalance = pair.balanceOf(users.lp);
         assertEq(initialLpBalance, 100e18 - MINIMUM_LIQUIDITY);
-        (uint256 reserveWeth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveWeth, uint256 reserveToken,) = pair.getReserves();
 
         assertEq(reserveWeth, initParams.virtualEth);
         assertEq(reserveToken, initParams.initialTokenMatch);
@@ -166,7 +166,7 @@ contract GoatExchangeTest is Test {
         uint256 expectedLp = 50e18 - MINIMUM_LIQUIDITY;
         uint256 initialLpBalance = pair.balanceOf(users.lp);
         assertEq(initialLpBalance, expectedLp);
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
 
         assertEq(reserveEth, initParams.bootstrapEth);
         assertEq(reserveToken, tokenAmtForAmm);
@@ -191,7 +191,7 @@ contract GoatExchangeTest is Test {
 
         uint256 initialLpBalance = pair.balanceOf(users.lp);
         assertEq(initialLpBalance, expectedLp);
-        (uint256 virtualReserveEth, uint256 virtualReserveToken) = pair.getReserves();
+        (uint256 virtualReserveEth, uint256 virtualReserveToken,) = pair.getReserves();
 
         assertEq(virtualReserveEth, initParams.virtualEth + initParams.initialEth);
         uint256 expectedVirtualReserveToken = (actualK / (initParams.virtualEth + initParams.initialEth)) + 1;
@@ -751,7 +751,7 @@ contract GoatExchangeTest is Test {
         vars.amountTokenOutFromAmm =
             (vars.wethForAmm * vars.tokenAmountAtAmm) / (initParams.bootstrapEth + vars.wethForAmm);
 
-        (uint256 virtualEthReserve, uint256 virtualTokenReserve) = pair.getReserves();
+        (uint256 virtualEthReserve, uint256 virtualTokenReserve,) = pair.getReserves();
         vars.actualK = virtualEthReserve * virtualTokenReserve;
         vars.desiredK = uint256(initParams.virtualEth) * (initParams.initialTokenMatch);
 
@@ -772,7 +772,7 @@ contract GoatExchangeTest is Test {
         vm.stopPrank();
 
         // Since the pool has turned to an Amm now, the reserves are real.
-        (uint256 realEthReserve, uint256 realTokenReserve) = pair.getReserves();
+        (uint256 realEthReserve, uint256 realTokenReserve,) = pair.getReserves();
 
         vars.desiredK = vars.tokenAmountAtAmm * initParams.bootstrapEth;
         vars.actualK = realEthReserve * realTokenReserve;
@@ -1007,7 +1007,7 @@ contract GoatExchangeTest is Test {
             initParams.virtualEth, actualWethReserveInPool, 0, initParams.initialTokenMatch
         );
 
-        (uint256 realEthReserve, uint256 realTokenReserve) = pair.getReserves();
+        (uint256 realEthReserve, uint256 realTokenReserve,) = pair.getReserves();
         assertEq(actualWethReserveInPool, realEthReserve);
 
         assertEq(tokenAmountForAmm, realTokenReserve);
@@ -1546,9 +1546,10 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
 
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken, uint32 lastTimestamp) = pair.getReserves();
         assertEq(reserveEth, initParams.initialEth);
         assertEq(reserveToken, tokenAmountForAmm);
+        assertEq(lastTimestamp, block.timestamp);
     }
 
     function testGetReservesWhenPoolIsInPresale() public {
@@ -1560,7 +1561,7 @@ contract GoatExchangeTest is Test {
 
         _mintInitialLiquidity(initParams, users.lp);
 
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, initParams.virtualEth);
         assertEq(reserveToken, initParams.initialTokenMatch);
     }

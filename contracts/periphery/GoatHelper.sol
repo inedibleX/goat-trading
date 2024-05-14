@@ -126,7 +126,7 @@ contract GoatHelper {
                     uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
 
                     // get reserves or pair contract
-                    (uint112 reserveEth, uint112 reserveToken) = pair.getReserves();
+                    (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
 
                     uint256 priceImpact;
                     //  calculate price impact because of tax sold before sell txn
@@ -195,7 +195,7 @@ contract GoatHelper {
                     uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
 
                     // get reserves or pair contract
-                    (uint112 reserveEth, uint112 reserveToken) = pair.getReserves();
+                    (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
 
                     uint256 priceImpact;
                     //  calculate price impact because of tax sold before sell txn

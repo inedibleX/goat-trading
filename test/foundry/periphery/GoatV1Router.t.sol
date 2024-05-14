@@ -37,7 +37,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
 
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 10e18); // actually we have 0 ETH but we have to show virtual ETH in reserve
         assertEq(reserveToken, 1000e18);
     }
@@ -63,7 +63,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(tokenAmtUsed, 1000e18);
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 15e18); // 10e18 virtual + 5e18 actual
             // expected = 1000000000000000000000 - 333333333333333333333  =  666666666666666666667
             // actual=  666666666666666666666
@@ -96,7 +96,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(tokenAmtUsed, 250e18);
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 10e18);
         assertEq(reserveToken, 250e18);
     }
@@ -115,7 +115,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(tokenAmtUsed, 1000e18);
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 10e18); // actually we have 0 ETH but we have to show virtual ETH in reserve
         assertEq(reserveToken, 1000e18);
     }
@@ -141,7 +141,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
 
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 15e18); // 10e18 virtual + 5e18 actual
             // expected = 1000000000000000000000 - 333333333333333333333  = 666666666666666666667
             // actual=  666666666666666666666
@@ -172,7 +172,7 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(tokenAmtUsed, 250e18);
         assertEq(wethAmtUsed, 10e18);
         assertEq(liquidity, expectedLiquidity);
-        (uint256 reserveEth, uint256 reserveToken) = pair.getReserves();
+        (uint256 reserveEth, uint256 reserveToken,) = pair.getReserves();
         assertEq(reserveEth, 10e18);
         assertEq(reserveToken, 250e18);
     }
@@ -191,7 +191,7 @@ contract GoatV1RouterTest is BaseTest {
         token.approve(address(router), 100e18);
         weth.approve(address(router), 1e18);
         addLiqParams.to = lp_1; // change to lp
-        // (uint256 reserveEth, uint256 reserveToken) = pair.getReserves(); // get reserves before adding liquidity to check for Lp minted later
+        // (uint256 reserveEth, uint256 reserveToken, ) = pair.getReserves(); // get reserves before adding liquidity to check for Lp minted later
 
         (uint256 tokenAmtUsed, uint256 wethAmtUsed, uint256 liquidity) = router.addLiquidity(
             addLiqParams.token,
@@ -263,7 +263,7 @@ contract GoatV1RouterTest is BaseTest {
         vm.startPrank(lp_1);
         token.approve(address(router), 100e18);
         addLiqParams.to = lp_1; // change to lp
-        // (uint256 reserveEth, uint256 reserveToken) = pair.getReserves(); // get reserves before adding liquidity to check for Lp minted later
+        // (uint256 reserveEth, uint256 reserveToken, ) = pair.getReserves(); // get reserves before adding liquidity to check for Lp minted later
 
         (uint256 tokenAmtUsed, uint256 wethAmtUsed, uint256 liquidity) = router.addLiquidityETH{value: 1e18}(
             addLiqParams.token,
@@ -967,7 +967,7 @@ contract GoatV1RouterTest is BaseTest {
         weth.transfer(normalLp, 5e18);
 
         GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
-        (uint256 wethReserve, uint256 tokenReserve) = pair.getReserves();
+        (uint256 wethReserve, uint256 tokenReserve,) = pair.getReserves();
         uint256 quoteToken = GoatLibrary.quote(5e18, wethReserve, tokenReserve);
         token.mint(normalLp, quoteToken);
         GoatTypes.InitParams memory initParams = GoatTypes.InitParams(
@@ -1820,7 +1820,7 @@ contract GoatV1RouterTest is BaseTest {
         _addLiquidityAndConvertToAmm();
         GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
 
-        (uint112 reserveWeth, uint112 reserveToken) = pair.getReserves();
+        (uint112 reserveWeth, uint112 reserveToken,) = pair.getReserves();
         uint256 expectedAmountOut = GoatLibrary.getTokenAmountOutAmm(5e18, reserveWeth, reserveToken);
         address[] memory path = new address[](2);
         path[0] = address(weth);
@@ -1834,7 +1834,7 @@ contract GoatV1RouterTest is BaseTest {
         _addLiquidityAndConvertToAmm();
         GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
 
-        (uint112 reserveWeth, uint112 reserveToken) = pair.getReserves();
+        (uint112 reserveWeth, uint112 reserveToken,) = pair.getReserves();
         uint256 expectedAmountOut = GoatLibrary.getWethAmountOutAmm(100e18, reserveWeth, reserveToken);
         address[] memory path = new address[](2);
         path[0] = address(token);

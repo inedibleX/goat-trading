@@ -46,6 +46,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     uint112 private _reserveEth;
     // token reserve in the pool
     uint112 private _reserveToken;
+    // last timestamp of the user interaction
+    uint32 private _lastTimestamp;
 
     // Amounts of eth needed to turn pool into an amm
     uint112 private _bootstrapEth;
@@ -155,7 +157,7 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             mintVars.isFirstMint = true;
         } else {
             // at this point in time we will get the actual reserves
-            (uint256 reserveEth, uint256 reserveToken) = getReserves();
+            (uint256 reserveEth, uint256 reserveToken,) = getReserves();
             amountWeth = balanceEth - reserveEth - _pendingLiquidityFees - _pendingProtocolFees;
             amountToken = balanceToken - reserveToken;
             liquidity = Math.min((amountWeth * totalSupply_) / reserveEth, (amountToken * totalSupply_) / reserveToken);
@@ -369,8 +371,9 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
     }
 
     /// @notice returns real reserves if pool has turned into an AMM else returns virtual reserves
-    function getReserves() public view returns (uint112 reserveEth, uint112 reserveToken) {
+    function getReserves() public view returns (uint112 reserveEth, uint112 reserveToken, uint32 lastTimestamp) {
         (reserveEth, reserveToken) = _getReserves(_vestingUntil, _reserveEth, _reserveToken);
+        lastTimestamp = _lastTimestamp;
     }
 
     /**
@@ -642,6 +645,8 @@ contract GoatV1Pair is GoatV1ERC20, ReentrancyGuard {
             _reserveEth = uint112(balanceEth);
         }
         _reserveToken = uint112(balanceToken);
+
+        _lastTimestamp = uint32(block.timestamp);
 
         emit Sync(_reserveEth + (_vestingUntil == _MAX_UINT32 ? _virtualEth : 0), _reserveToken);
     }
