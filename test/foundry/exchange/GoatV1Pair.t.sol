@@ -50,7 +50,9 @@ contract GoatExchangeTest is Test {
         goat = new MockERC20();
         vm.stopPrank();
         vm.startPrank(users.treasury);
-        factory = new GoatV1Factory(address(weth));
+        address[] memory tokens;
+        address[] memory pairs;
+        factory = new GoatV1Factory(address(weth), tokens, pairs);
         vm.stopPrank();
     }
 

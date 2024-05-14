@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {BaseTest} from "../BaseTest.t.sol";
+import {BaseTest, GoatV1Factory} from "../BaseTest.t.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatV1Pair} from "../../../contracts/exchange/GoatV1Pair.sol";
 import {GoatErrors} from "../../../contracts/library/GoatErrors.sol";
@@ -97,5 +97,36 @@ contract GoatV1FactoryTest is BaseTest {
         vm.prank(lp_1);
         vm.expectRevert(GoatErrors.Forbidden.selector);
         factory.setFeeToTreasury(100e18);
+    }
+
+    // UPDATED FACTORY TEST FOR MIGRATION OF PAIRS
+    function testFactoryMigrationUpdate() public {
+        address[] memory tokens = new address[](3);
+        address[] memory pairs = new address[](3);
+
+        tokens[0] = makeAddr("tokens0");
+        tokens[1] = makeAddr("tokens1");
+        tokens[2] = makeAddr("tokens2");
+
+        pairs[0] = makeAddr("pairs0");
+        pairs[1] = makeAddr("pairs1");
+        pairs[2] = makeAddr("pairs2");
+
+        GoatV1Factory newFactory = new GoatV1Factory(address(weth), tokens, pairs);
+
+        assertEq(newFactory.weth(), address(weth));
+        assertEq(newFactory.getPool(tokens[0]), pairs[0]);
+        assertEq(newFactory.getPool(tokens[1]), pairs[1]);
+        assertEq(newFactory.getPool(tokens[2]), pairs[2]);
+
+        // test getPair
+        assertEq(newFactory.getPair(tokens[0], address(weth)), pairs[0]);
+        assertEq(newFactory.getPair(address(weth), tokens[0]), pairs[0]);
+
+        assertEq(newFactory.getPair(tokens[1], address(weth)), pairs[1]);
+        assertEq(newFactory.getPair(address(weth), tokens[1]), pairs[1]);
+
+        assertEq(newFactory.getPair(tokens[2], address(weth)), pairs[2]);
+        assertEq(newFactory.getPair(address(weth), tokens[2]), pairs[2]);
     }
 }

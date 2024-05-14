@@ -39,7 +39,9 @@ abstract contract BaseTest is Test {
         vm.warp(300 days);
         weth = new MockWETH();
         token = new MockERC20();
-        factory = new GoatV1Factory(address(weth));
+        address[] memory tokens;
+        address[] memory pairs;
+        factory = new GoatV1Factory(address(weth), tokens, pairs);
         router = new GoatV1Router(address(factory), address(weth));
 
         // Mint tokens
