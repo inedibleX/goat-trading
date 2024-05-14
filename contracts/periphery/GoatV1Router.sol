@@ -648,4 +648,40 @@ contract GoatV1Router {
     ) public pure returns (uint256 actualTokenAmount) {
         return GoatLibrary.getActualBootstrapTokenAmount(virtualEth, bootstrapEth, initialEth, initialTokenMatch);
     }
+
+    /**
+     * @notice This function is for read purposes only to make this contract compatible to
+     *   tools like dextools and should not be used for contract interaction.
+     * @dev Given an output amount of an asset and pair reserves,
+     *  returns the required input amount of the other asset.
+     * @param amountOut The desired output amount of the asset.
+     * @param reserveIn The reserve of the input asset in the pair.
+     * @param reserveOut The reserve of the output asset in the pair.
+     * @return amountIn The calculated required input amount of the other asset.
+     */
+    function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut)
+        public
+        pure
+        returns (uint256 amountIn)
+    {
+        return GoatLibrary.getAmountIn(amountOut, reserveIn, reserveOut);
+    }
+
+    /**
+     * @notice This function is for read purposes only to make this contract compatible to
+     *   tools like dextools and should not be used for contract interaction.
+     * @dev Given an input amount of an asset and pair reserves,
+     *   returns the maximum output amount of the other asset.
+     * @param amountIn The input amount of the asset.
+     * @param reserveIn The reserve of the input asset in the pair.
+     * @param reserveOut The reserve of the output asset in the pair.
+     * @return amountOut The calculated maximum output amount of the other asset.
+     */
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut)
+        public
+        pure
+        returns (uint256 amountOut)
+    {
+        return GoatLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
+    }
 }

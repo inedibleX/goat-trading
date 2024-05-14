@@ -304,4 +304,51 @@ library GoatLibrary {
         uint256 denominator = (reserveToken - tokenAmountOut);
         amountWethIn = (numerator / denominator) + 1;
     }
+
+    /* ----------------------------- UNI V2 COMPATIBLE FUNCTIONS READ ONLY ----------------------------- */
+
+    /**
+     * @notice This function is for read purposes only to make this contract compatible to
+     *   tools like dextools and should not be used for contract interaction.
+     * @dev Given an input amount of an asset and pair reserves,
+     *   returns the maximum output amount of the other asset.
+     * @param amountIn The input amount of the asset.
+     * @param reserveIn The reserve of the input asset in the pair.
+     * @param reserveOut The reserve of the output asset in the pair.
+     * @return amountOut The calculated maximum output amount of the other asset.
+     */
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut)
+        internal
+        pure
+        returns (uint256 amountOut)
+    {
+        if (amountIn == 0) revert GoatErrors.InsufficientInputAmount();
+        if (reserveIn == 0 || reserveOut == 0) revert GoatErrors.InsufficientLiquidity();
+        uint256 amountInWithFee = amountIn * 9901;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = (reserveIn * 10000) + amountInWithFee;
+        amountOut = numerator / denominator;
+    }
+
+    /**
+     * @notice This function is for read purposes only to make this contract compatible to
+     *   tools like dextools and should not be used for contract interaction.
+     * @dev Given an output amount of an asset and pair reserves,
+     *  returns the required input amount of the other asset.
+     * @param amountOut The desired output amount of the asset.
+     * @param reserveIn The reserve of the input asset in the pair.
+     * @param reserveOut The reserve of the output asset in the pair.
+     * @return amountIn The calculated required input amount of the other asset.
+     */
+    function getAmountIn(uint256 amountOut, uint256 reserveIn, uint256 reserveOut)
+        internal
+        pure
+        returns (uint256 amountIn)
+    {
+        if (amountOut == 0) revert GoatErrors.InsufficientOutputAmount();
+        if (reserveIn == 0 || reserveOut == 0) revert GoatErrors.InsufficientLiquidity();
+        uint256 numerator = reserveIn * amountOut * 10000;
+        uint256 denominator = (reserveOut - amountOut) * 9901;
+        amountIn = (numerator / denominator) + 1;
+    }
 }
