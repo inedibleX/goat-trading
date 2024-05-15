@@ -90,6 +90,7 @@ contract GoatHelper {
 
         IGoatV1Pair pair = IGoatV1Pair(IGoatV1Factory(_FACTORY).getPool(token));
 
+        amounts = IGoatV1Router(_ROUTER).getAmountsOut(amountIn, path);
         // making static call because some tokens may not have taxes
         // and will revert if we call directly
         (bool success, bytes memory data) =
@@ -120,28 +121,29 @@ contract GoatHelper {
                     } else {
                         taxToSell += tokenBalance;
                     }
+                    if (taxToSell != 0) {
+                        // as we know path is same for sell
+                        uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
 
-                    // as we know path is same for sell
-                    uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
+                        // get reserves or pair contract
+                        (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
 
-                    // get reserves or pair contract
-                    (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
+                        uint256 priceImpact;
+                        //  calculate price impact because of tax sold before sell txn
+                        {
+                            uint256 ratio_in = (taxAmounts[0] * _ONE) / reserveToken;
+                            uint256 ratio_out = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
+                            uint256 ratioDiff = ((ratio_in * _DIVISOR) / ratio_out);
 
-                    uint256 priceImpact;
-                    //  calculate price impact because of tax sold before sell txn
-                    {
-                        uint256 ratio_in = (taxAmounts[0] * _ONE) / reserveToken;
-                        uint256 ratio_out = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
-                        uint256 ratioDiff = ((ratio_in * _DIVISOR) / ratio_out);
-
-                        if (ratioDiff > _DIVISOR) {
-                            priceImpact = ratioDiff - _DIVISOR;
-                        } else {
-                            priceImpact = _DIVISOR - ratioDiff;
+                            if (ratioDiff > _DIVISOR) {
+                                priceImpact = ratioDiff - _DIVISOR;
+                            } else {
+                                priceImpact = _DIVISOR - ratioDiff;
+                            }
                         }
+                        // amount out should be lesser than amounts[1] because of price impact
+                        amounts[1] = amounts[1] - ((amounts[1] * priceImpact) / _DIVISOR);
                     }
-                    // amount out should be lesser than amounts[1] because of price impact
-                    amounts[1] = amounts[1] - ((amounts[1] * priceImpact) / _DIVISOR);
                 }
             } else {
                 // if it's a buy txn
@@ -175,6 +177,7 @@ contract GoatHelper {
 
         IGoatV1Pair pair = IGoatV1Pair(IGoatV1Factory(_FACTORY).getPool(vars.token));
 
+        amounts = IGoatV1Router(_ROUTER).getAmountsIn(amountOut, path);
         // making static call because some tokens may not have taxes
         // and will revert if we call directly
         (bool success, bytes memory data) =
@@ -183,8 +186,6 @@ contract GoatHelper {
         if (success && data.length >= 64) {
             (vars.buyTax, vars.sellTax) = abi.decode(data, (uint256, uint256));
             if (vars.isSell) {
-                amounts = IGoatV1Router(_ROUTER).getAmountsIn(amountOut, path);
-
                 uint256 amountInLast;
 
                 if (pair.vestingUntil() != type(uint32).max) {
@@ -204,17 +205,19 @@ contract GoatHelper {
                             vars.taxToSell += tokenBalance;
                         }
 
-                        // as we know path is same for sell
-                        uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(vars.taxToSell, path);
+                        if (vars.taxToSell != 0) {
+                            // as we know path is same for sell
+                            uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(vars.taxToSell, path);
 
-                        // get reserves or pair contract
-                        (uint112 reserveEth,,) = pair.getReserves();
+                            // get reserves or pair contract
+                            (uint112 reserveEth,,) = pair.getReserves();
 
-                        vars.priceImpact = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
+                            vars.priceImpact = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
 
-                        uint256 extra = (((amounts[0] - amountInLast) * vars.priceImpact) / _ONE) + 1;
-                        amountInLast = amounts[0];
-                        amounts[0] += extra;
+                            uint256 extra = (((amounts[0] - amountInLast) * vars.priceImpact) / _ONE) + 1;
+                            amountInLast = amounts[0];
+                            amounts[0] += extra;
+                        }
                     }
                 } else {
                     // as taxes cannot be dumped we only add tax to amountIn
