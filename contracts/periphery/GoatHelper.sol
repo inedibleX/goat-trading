@@ -104,12 +104,11 @@ contract GoatHelper {
                 // get actual amount out after taxes
                 amounts = IGoatV1Router(_ROUTER).getAmountsOut(amountIn - taxToSell, path);
 
-                //
                 // so keeping it as original amount In because amount[0] returned
                 // to should be original amountIn
                 amounts[0] = amountIn;
 
-                if (pair.vestingUntil() < block.timestamp) {
+                if (pair.vestingUntil() != type(uint32).max) {
                     // This means we are in an amm phase of the pool
 
                     // Taxes from previous txns stuck inside the tax tokens
@@ -152,71 +151,77 @@ contract GoatHelper {
         }
     }
 
-    function getAmountsIn(uint256 amountOut, address[] memory path) external view returns (uint256[] memory amounts) {
+    struct StateVarsAmountIn {
         address token;
         bool isSell;
+        uint256 buyTax;
+        uint256 sellTax;
+        uint256 taxToSell;
+        uint256 priceImpact;
+    }
+
+    function getAmountsIn(uint256 amountOut, address[] memory path) external view returns (uint256[] memory amounts) {
+        StateVarsAmountIn memory vars;
+        vars.token;
+        vars.isSell;
 
         // Check what will be dumped
         if (path[0] == _WETH) {
-            token = path[1];
+            vars.token = path[1];
         } else {
-            token = path[0];
-            isSell = true;
+            vars.token = path[0];
+            vars.isSell = true;
         }
 
-        IGoatV1Pair pair = IGoatV1Pair(IGoatV1Factory(_FACTORY).getPool(token));
+        IGoatV1Pair pair = IGoatV1Pair(IGoatV1Factory(_FACTORY).getPool(vars.token));
 
         // making static call because some tokens may not have taxes
         // and will revert if we call directly
         (bool success, bytes memory data) =
-            token.staticcall(abi.encodeWithSignature("getTaxes(address)", address(pair)));
+            vars.token.staticcall(abi.encodeWithSignature("getTaxes(address)", address(pair)));
 
         if (success && data.length >= 64) {
-            (uint256 buyTax, uint256 sellTax) = abi.decode(data, (uint256, uint256));
-            if (isSell) {
+            (vars.buyTax, vars.sellTax) = abi.decode(data, (uint256, uint256));
+            if (vars.isSell) {
                 amounts = IGoatV1Router(_ROUTER).getAmountsIn(amountOut, path);
-                if (pair.vestingUntil() > block.timestamp) {
+
+                uint256 amountInLast;
+
+                if (pair.vestingUntil() != type(uint32).max) {
                     // This means we are in an amm phase of the pool
                     // and sell txns will dump taxes before selling so pirce impact
                     // should be considered
-                    uint256 taxToSell = (amounts[0] * sellTax) / _DIVISOR;
+                    while ((amounts[0] - amountInLast) > 1) {
+                        vars.taxToSell = ((amounts[0] - amountInLast) * vars.sellTax) / _DIVISOR;
 
-                    // Taxes from previous txns stuck inside the tax tokens
-                    uint256 tokenBalance = IERC20(token).balanceOf(token);
-                    if (tokenBalance > (taxToSell * 2)) {
-                        // tax token will sell only 3X the current tax amount
-                        // even if there is more tax stuck inside
-                        taxToSell += (taxToSell * 2);
-                    } else {
-                        taxToSell += tokenBalance;
-                    }
-
-                    // as we know path is same for sell
-                    uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
-
-                    // get reserves or pair contract
-                    (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
-
-                    uint256 priceImpact;
-                    //  calculate price impact because of tax sold before sell txn
-                    {
-                        uint256 ratio_in = (taxAmounts[0] * _ONE) / reserveToken;
-                        uint256 ratio_out = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
-                        uint256 ratioDiff = ((ratio_in * _DIVISOR) / ratio_out);
-
-                        if (ratioDiff > _DIVISOR) {
-                            priceImpact = ratioDiff - _DIVISOR;
+                        // Taxes from previous txns stuck inside the tax tokens
+                        uint256 tokenBalance = IERC20(vars.token).balanceOf(vars.token);
+                        if (tokenBalance > (vars.taxToSell * 2)) {
+                            // tax token will sell only 3X the current tax amount
+                            // even if there is more tax stuck inside
+                            vars.taxToSell += (vars.taxToSell * 2);
                         } else {
-                            priceImpact = _DIVISOR - ratioDiff;
+                            vars.taxToSell += tokenBalance;
                         }
+
+                        // as we know path is same for sell
+                        uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(vars.taxToSell, path);
+
+                        // get reserves or pair contract
+                        (uint112 reserveEth,,) = pair.getReserves();
+
+                        vars.priceImpact = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
+
+                        uint256 extra = (((amounts[0] - amountInLast) * vars.priceImpact) / _ONE) + 1;
+                        amountInLast = amounts[0];
+                        amounts[0] += extra;
                     }
-                    amounts[0] = (amounts[0] * (_DIVISOR + priceImpact) / _DIVISOR) + 1;
                 } else {
                     // as taxes cannot be dumped we only add tax to amountIn
-                    amounts[0] = (amounts[0] * (_DIVISOR + sellTax) / _DIVISOR) + 1;
+                    amounts[0] = (amounts[0] * (_DIVISOR + vars.sellTax) / _DIVISOR) + 1;
                 }
             } else {
-                amountOut = amountOut * (_DIVISOR + buyTax) / _DIVISOR;
+                amountOut = amountOut * (_DIVISOR + vars.buyTax) / _DIVISOR;
                 amounts = IGoatV1Router(_ROUTER).getAmountsIn(amountOut, path);
             }
         }
