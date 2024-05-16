@@ -413,7 +413,7 @@ contract GoatV1Router {
             /**
              * @dev This block is accessed after the presale period is over and the pool is converted to AMM
              */
-            (uint256 wethReserve, uint256 tokenReserve) = pair.getReserves();
+            (uint256 wethReserve, uint256 tokenReserve,) = pair.getReserves();
             uint256 tokenAmountOptimal = GoatLibrary.quote(wethDesired, wethReserve, tokenReserve);
             if (tokenAmountOptimal <= tokenDesired) {
                 if (tokenAmountOptimal < tokenMin) {

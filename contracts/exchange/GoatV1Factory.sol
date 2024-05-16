@@ -39,13 +39,24 @@ contract GoatV1Factory {
     event PairRemoved(address indexed token, address pair);
 
     /**
-     * @notice Constructs the GoatV1Factory contract.
+     * @notice Constructs the GoatV1Factory contract and migrates
+     *     the trading pairs from the previous version.
      * @param _weth The address of the wrapped native token (e.g., WETH).
+     * @param _tokens The addresses of the tokens to pair with the wrapped native token.
+     * @param _pairs The addresses of the trading pair contracts.
      */
-    constructor(address _weth) {
+    constructor(address _weth, address[] memory _tokens, address[] memory _pairs) {
         weth = _weth;
         baseName = IERC20Metadata(_weth).name();
         treasury = msg.sender;
+        uint256 length = _pairs.length;
+        if (length != _tokens.length) {
+            revert GoatErrors.LengthMismatch();
+        }
+        for (uint256 i = 0; i < length; i++) {
+            pools[_tokens[i]] = _pairs[i];
+            emit PairCreated(_weth, _tokens[i], _pairs[i]);
+        }
     }
 
     /**

@@ -76,7 +76,9 @@ contract BaseTokenTest is Test {
         // Launch factory
         // Testing factory probably works well enough just through tests of the token as long as pool is tested
         // Tests for each token type start with
-        factory = new GoatV1Factory(address(weth));
+        address[] memory tokens;
+        address[] memory pairs;
+        factory = new GoatV1Factory(address(weth), tokens, pairs);
         tokenFactory = new TokenFactory(address(factory), address(weth));
         tokenFactory2 = new TokenFactory2(address(factory), address(weth));
         tokenFactory3 = new TokenFactory3(address(factory), address(weth));
