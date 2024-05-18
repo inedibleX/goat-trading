@@ -125,8 +125,9 @@ contract GoatHelper {
                         // as we know path is same for sell
                         uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(taxToSell, path);
 
-                        // get reserves or pair contract
-                        (uint112 reserveEth, uint112 reserveToken,) = pair.getReserves();
+                        (success, data) = address(pair).staticcall(abi.encodeWithSignature("getReserves()"));
+
+                        (uint112 reserveEth, uint112 reserveToken) = abi.decode(data, (uint112, uint112));
 
                         uint256 priceImpact;
                         //  calculate price impact because of tax sold before sell txn
@@ -192,6 +193,9 @@ contract GoatHelper {
                     // This means we are in an amm phase of the pool
                     // and sell txns will dump taxes before selling so pirce impact
                     // should be considered
+                    (success, data) = address(pair).staticcall(abi.encodeWithSignature("getReserves()"));
+                    (uint112 reserveEth) = abi.decode(data, (uint112));
+
                     while ((amounts[0] - amountInLast) > 1) {
                         vars.taxToSell = ((amounts[0] - amountInLast) * vars.sellTax) / _DIVISOR;
 
@@ -208,9 +212,6 @@ contract GoatHelper {
                         if (vars.taxToSell != 0) {
                             // as we know path is same for sell
                             uint256[] memory taxAmounts = IGoatV1Router(_ROUTER).getAmountsOut(vars.taxToSell, path);
-
-                            // get reserves or pair contract
-                            (uint112 reserveEth,,) = pair.getReserves();
 
                             vars.priceImpact = (taxAmounts[1] * _ONE) / (reserveEth - taxAmounts[1]);
 
