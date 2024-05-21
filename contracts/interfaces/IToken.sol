@@ -11,4 +11,5 @@ interface IToken is IERC20 {
     function changeSafeHaven(address _safeHaven, bool _toAdd) external;
     function getTaxes(address token) external view returns (uint256 buyTax, uint256 sellTax);
     function revokeRewardsEligibility(address _user, bool _revoked) external;
+    function changeDex(address _dexAddress) external;
 }

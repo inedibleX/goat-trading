@@ -95,7 +95,7 @@ contract TaxShareTokenTest is BaseTokenTest {
         address owner = taxshare.owner();
 
         assertEq(treasury, users.owner, "Treasury should be owner");
-        assertEq(dex, address(0), "Dex should be address(0)");
+        assertEq(dex, address(router), "Dex should be goat router");
         assertEq(owner, users.owner, "Owner should be owner");
     }
 

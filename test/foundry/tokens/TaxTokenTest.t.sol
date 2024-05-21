@@ -12,7 +12,9 @@ import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {TokenErrors} from "./../../../contracts/tokens/library/TokenErrors.sol";
 
-import {console2} from "forge-std/console2.sol";
+// import {GoatHelper} from "./../../../contracts/periphery/GoatHelper.sol";
+
+// import {console2} from "forge-std/console2.sol";
 
 // General tax token tests that will be run on every token
 // 1. All normal token things such as transfers working
@@ -92,7 +94,7 @@ contract TaxTokenTest is BaseTokenTest {
         address owner = plainTax.owner();
 
         assertEq(treasury, users.owner, "Treasury should be owner");
-        assertEq(dex, address(0), "Dex should be address(0)");
+        assertEq(dex, address(router), "Dex should be goat router");
         assertEq(owner, users.owner, "Owner should be owner");
     }
 
@@ -151,13 +153,13 @@ contract TaxTokenTest is BaseTokenTest {
 
         createTokenAndAddLiquidity(initParams, RevertType.None);
 
-        assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
+        assertEq(plainTax.dex(), address(router), "Dex should be goat router");
 
         vm.startPrank(users.owner);
-        plainTax.changeDex(address(router));
+        plainTax.changeDex(users.whale);
         vm.stopPrank();
 
-        assertEq(plainTax.dex(), address(router), "Dex should be whale");
+        assertEq(plainTax.dex(), users.whale, "Dex should be whale");
     }
 
     function testChangeDexRevertOnNotOwnerOrTreasury() public {
@@ -169,7 +171,7 @@ contract TaxTokenTest is BaseTokenTest {
 
         createTokenAndAddLiquidity(initParams, RevertType.None);
 
-        assertEq(plainTax.dex(), address(0), "Dex should be address(0)");
+        assertEq(plainTax.dex(), address(router), "Dex should be goat router");
 
         vm.startPrank(users.bob);
         vm.expectRevert(TokenErrors.OnlyOwnerOrTreasury.selector);
@@ -422,6 +424,88 @@ contract TaxTokenTest is BaseTokenTest {
         );
         vm.stopPrank();
     }
+
+    // function testHelperTokenIn() public {
+    //     GoatTypes.InitParams memory initParams;
+    //     initParams.bootstrapEth = 10e18;
+    //     initParams.initialEth = 0;
+    //     initParams.initialTokenMatch = 1000e18;
+    //     initParams.virtualEth = 10e18;
+
+    //     createTokenAndAddLiquidity(initParams, RevertType.None);
+
+    //     vm.startPrank(users.owner);
+    //     plainTax.transferTreasury(users.treasury);
+    //     plainTax.changeDex(address(router));
+    //     vm.stopPrank();
+
+    //     address[] memory path = new address[](2);
+    //     path[0] = address(router.WETH());
+    //     path[1] = address(plainTax);
+    //     uint256 amountIn = 12e18;
+    //     uint256[] memory amounts = router.getAmountsOut(amountIn, path);
+    //     uint256 pairTokenBalBefore = plainTax.balanceOf(pair);
+    //     vm.startPrank(users.whale);
+    //     // fund bob with some weth
+    //     uint256 taxCollectedBalBefore = plainTax.balanceOf(address(plainTax));
+    //     uint256 tax = amounts[1] * 100 / 10000;
+    //     uint256 amountOutMin = amounts[1] - tax;
+    //     weth.transfer(users.bob, 20e18);
+    //     weth.approve(address(router), amountIn);
+    //     router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+    //         amountIn, amounts[1], path, users.whale, block.timestamp
+    //     );
+    //     vm.stopPrank();
+    //     uint256 taxCollectedBalAfter = plainTax.balanceOf(address(plainTax));
+    //     uint256 swapperTokenBalAfter = plainTax.balanceOf(users.whale);
+    //     uint256 pairTokenBalAfter = plainTax.balanceOf(pair);
+
+    //     assertEq(taxCollectedBalAfter - taxCollectedBalBefore, tax, "Treasury balance should be tax amount");
+    //     assertEq(pairTokenBalBefore - pairTokenBalAfter, swapperTokenBalAfter + tax);
+
+    //     vm.warp(block.timestamp + 10 days);
+
+    //     // update treasury bal before
+    //     taxCollectedBalBefore = taxCollectedBalAfter;
+    //     amountIn = 2e18;
+    //     amounts = router.getAmountsOut(amountIn, path);
+    //     tax = (amounts[1] * 1000) / 10000;
+    //     amountOutMin = amounts[1] - tax;
+    //     vm.startPrank(users.bob);
+    //     weth.approve(address(router), amountIn);
+    //     router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+    //         amountIn, amounts[1], path, users.bob, block.timestamp
+    //     );
+    //     vm.stopPrank();
+    //     taxCollectedBalAfter = plainTax.balanceOf(address(plainTax));
+    //     uint256 bobTaxTokenBal = plainTax.balanceOf(users.bob);
+    //     tax = amounts[1] * 100 / 10000;
+
+    //     assertEq(taxCollectedBalAfter - taxCollectedBalBefore, tax, "Treasury balance should be tax amount");
+    //     assertEq(bobTaxTokenBal, amounts[1] - tax, "Bob tax token balance should be amount in minus tax");
+
+    //     // SWAP TOKENS FOR WETH
+
+    //     path[0] = address(plainTax);
+    //     path[1] = address(router.WETH());
+
+    //     amountIn = 10e18;
+    //     amounts = router.getAmountsOut(amountIn - amountIn * 100 / 10000, path);
+
+    //     // increase time
+    //     vm.warp(block.timestamp + 1 days);
+    //     vm.startPrank(users.bob);
+    //     plainTax.approve(address(router), amountIn);
+    //     router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+    //         amountIn, (amounts[1] - (amounts[1] * 100 / 10000)), path, users.bob, block.timestamp
+    //     );
+    //     vm.stopPrank();
+    //     GoatHelper helper = new GoatHelper(address(router));
+
+    //     helper.getAmountsOut(667e18, path);
+    //     console2.log("_________________________________________________********************************************");
+    //     helper.getAmountsIn(10e18, path);
+    // }
 
     function testSellTaxesSuccessWithNecessaryUpdates() public {
         GoatTypes.InitParams memory initParams;

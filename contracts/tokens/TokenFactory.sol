@@ -24,10 +24,12 @@ import {IToken} from "./../interfaces/IToken.sol";
 contract TokenFactory {
     IGoatV1Factory private _factory;
     address private immutable _weth;
+    address private immutable _router;
 
-    constructor(address factory_, address weth_) {
+    constructor(address factory_, address weth_, address router_) {
         _factory = IGoatV1Factory(factory_);
         _weth = weth_;
+        _router = router_;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */
@@ -90,6 +92,7 @@ contract TokenFactory {
         } else if (_type != TokenType.PLAIN) {
             token.setTaxes(pool, _buyTax, _sellTax);
             token.transferTreasury(_owner);
+            token.changeDex(_router);
         }
 
         // Plain tokens do not need ownership transfer.

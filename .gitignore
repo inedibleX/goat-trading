@@ -11,6 +11,7 @@ src/types
 cache
 artifacts
 bin
+types/
 
 # local files
 .openzeppelin/

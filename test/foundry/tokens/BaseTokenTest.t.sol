@@ -79,9 +79,9 @@ contract BaseTokenTest is Test {
         address[] memory tokens;
         address[] memory pairs;
         factory = new GoatV1Factory(address(weth), tokens, pairs);
-        tokenFactory = new TokenFactory(address(factory), address(weth));
-        tokenFactory2 = new TokenFactory2(address(factory), address(weth));
-        tokenFactory3 = new TokenFactory3(address(factory), address(weth));
         router = new GoatV1Router(address(factory), address(weth));
+        tokenFactory = new TokenFactory(address(factory), address(weth), address(router));
+        tokenFactory2 = new TokenFactory2(address(factory), address(weth), address(router));
+        tokenFactory3 = new TokenFactory3(address(factory), address(weth), address(router));
     }
 }

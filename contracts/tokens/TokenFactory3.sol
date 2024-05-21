@@ -24,10 +24,12 @@ import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
 contract TokenFactory3 {
     IGoatV1Factory private _factory;
     address private immutable _weth;
+    address private immutable _router;
 
-    constructor(address factory_, address weth_) {
+    constructor(address factory_, address weth_, address router_) {
         _factory = IGoatV1Factory(factory_);
         _weth = weth_;
+        _router = router_;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */
@@ -86,6 +88,7 @@ contract TokenFactory3 {
             token.revokeRewardsEligibility(pool, true);
         }
 
+        token.changeDex(_router);
         token.transferTreasury(_owner);
 
         // Plain tokens do not need ownership transfer.
