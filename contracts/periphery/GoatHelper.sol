@@ -230,4 +230,18 @@ contract GoatHelper {
             }
         }
     }
+
+    function getLiquidityAmountsOut(address token, uint256 lpAmount, uint256 slippage)
+        external
+        view
+        returns (uint256 amountEthMin, uint256 amountTokenMin)
+    {
+        address pair = IGoatV1Factory(_FACTORY).getPool(token);
+        (uint112 reserveEth, uint112 reserveToken,) = IGoatV1Pair(pair).getReserves();
+        uint256 totalSupply = IGoatV1Pair(pair).totalSupply();
+        uint256 amountEth = (lpAmount * reserveEth) / totalSupply;
+        uint256 amountToken = (lpAmount * reserveToken) / totalSupply;
+        amountEthMin = (amountEth * (_DIVISOR - slippage)) / _DIVISOR;
+        amountTokenMin = (amountToken * (_DIVISOR - slippage)) / _DIVISOR;
+    }
 }

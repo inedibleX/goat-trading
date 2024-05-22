@@ -5,11 +5,12 @@ import {BaseTest, MockERC20} from "../BaseTest.t.sol";
 import {GoatErrors} from "../../../contracts/library/GoatErrors.sol";
 import {GoatV1Pair} from "../../../contracts/exchange/GoatV1Pair.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {console2} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {GoatTypes} from "../../../contracts/library/GoatTypes.sol";
 import {GoatLibrary} from "../../../contracts/library/GoatLibrary.sol";
 import {FeeOnTransferToken} from "../../../contracts/mock/FeeOnTransferToken.sol";
+
+import {GoatHelper} from "./../../../contracts/periphery/GoatHelper.sol";
 
 contract GoatV1RouterTest is BaseTest {
     uint256 constant VESTING_PERIOD = 2 days;
@@ -514,6 +515,30 @@ contract GoatV1RouterTest is BaseTest {
         assertEq(pair.totalSupply(), currentTotalSupply);
         assertEq(lp_1.balance, userEthBalBefore + expectedEth);
         assertEq(token.balanceOf(lp_1), expectedToken);
+    }
+    // This is a dummy test to just make sure quote function of helper contract is correct
+
+    function testHelperFunctionQuote() public {
+        _addLiquidityEthAndConvertToAmm();
+        GoatV1Pair pair = GoatV1Pair(factory.getPool(address(token)));
+        uint256 balanceToken = token.balanceOf(address(pair));
+        uint256 balanceEth = weth.balanceOf(address(pair));
+        uint256 totalSupply = pair.totalSupply();
+        uint256 userLiquidity = pair.balanceOf(address(this));
+        uint256 userEthBalBefore = lp_1.balance;
+        pair.approve(address(router), userLiquidity);
+        // remove liquidity
+        // forward time to remove lock
+        vm.warp(block.timestamp + 2 days);
+        uint256 fractionalLiquidity = userLiquidity / 4;
+        GoatHelper helper = new GoatHelper(address(router));
+        (uint256 amountWethMin, uint256 amountTokenMin) =
+            helper.getLiquidityAmountsOut(address(token), fractionalLiquidity, 0);
+
+        (uint256 amountWeth, uint256 amountToken) =
+            router.removeLiquidityETH(address(token), fractionalLiquidity, 0, 0, lp_1, block.timestamp);
+        assertEq(amountWethMin, amountWeth, "Calculated and returned should be equal");
+        assertEq(amountTokenMin, amountToken, "Calculated and returned should be equal");
     }
 
     function testRemoveLiquidityUpdateFeesForLpIfSwapIsDone() public {
