@@ -5,6 +5,7 @@ import {LotteryToken} from "./LotteryToken.sol";
 import {GoatLibrary} from "../library/GoatLibrary.sol";
 import {GoatV1Factory} from "./../exchange/GoatV1Factory.sol";
 import {GoatTypes} from "./../library/GoatTypes.sol";
+import {TokenErrors} from "./library/TokenErrors.sol";
 
 import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
 
@@ -75,7 +76,9 @@ contract LotteryTokenMaster {
         address owner = msg.sender;
 
         // Minimum chance 1 out of 1 million, maximum 1 out of 1
-        require(0 < _winChance && _winChance < 1_000_000, "Invalid win chance.");
+        if (_winChance > 1_000_000) {
+            revert TokenErrors.InvalidWinChance();
+        }
         LotteryToken token = new LotteryToken(_name, _symbol, _totalSupply, _potPercent, _maxWinMultiplier, _weth);
         tokenAddress = address(token);
         winChances[tokenAddress] = _winChance;
@@ -86,7 +89,7 @@ contract LotteryTokenMaster {
             initParams.virtualEth, initParams.bootstrapEth, initParams.initialEth, initParams.initialTokenMatch
         );
         uint256 bootstrapTokenAmt = tokenAmtForPresale + tokenAmtForAmm;
-        require(bootstrapTokenAmt >= _totalSupply / 10, "Must use at least 10% of total supply in the pool.");
+        if (bootstrapTokenAmt < _totalSupply / 10) revert TokenErrors.TokenAmountForPoolTooLow();
 
         token.transfer(pool, bootstrapTokenAmt);
         IGoatV1Pair(pool).mint(owner);
@@ -110,8 +113,10 @@ contract LotteryTokenMaster {
         // Tokens will call with 0 so we can adjust default as needed.
         // Keepers can call with many more if necessary.
         if (_loops == 0) _loops = defaultUpkeepLoops;
+        uint256 startIndex = entryIndex;
+        uint256 entriesLength = entries.length;
 
-        for (uint256 i = entryIndex; i < _loops && i < entries.length; i++) {
+        for (uint256 i = startIndex; i < _loops && i < entriesLength; i++) {
             Entry memory entry = entries[i];
 
             // Must have reached draw block. If not, end of checks.
@@ -122,9 +127,12 @@ contract LotteryTokenMaster {
 
             // Tell the token to send up to 100x the token trade to the user.
             if (winner) _wonLottery(entry.token, entry.user, uint256(entry.tokenAmt));
-
-            // Increment.
-            entryIndex++;
+        }
+        // update entry index
+        if (startIndex + _loops < entriesLength) {
+            entryIndex += _loops;
+        } else {
+            entryIndex = entriesLength;
         }
     }
 
@@ -136,8 +144,7 @@ contract LotteryTokenMaster {
      */
     function addEntry(address _user, uint256 _tokenAmt) external {
         // Don't want entries added that aren't from valid lottery coins.
-        require(winChances[msg.sender] > 0, "Entry is not from a valid lottery token.");
-
+        if (winChances[msg.sender] == 0) revert TokenErrors.EntryNotFromValidLotteryToken();
         // Push drawing to the next Ethereum epoch
         uint96 drawBlock = uint96(block.number + 32);
         uint96 fullTokens = uint96(_tokenAmt / _WEI);

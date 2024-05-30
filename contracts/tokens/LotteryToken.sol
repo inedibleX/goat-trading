@@ -22,9 +22,6 @@ contract LotteryToken is TaxToken {
     // 10000 == 100x
     uint256 public maxWinMultiplier;
 
-    // Chance for a win to occur. Can be from 1 - 1 million.
-    uint256 public winChance;
-
     // Factory contract that holds all lottery token entries.
     address public lotteryMaster;
 
@@ -46,6 +43,7 @@ contract LotteryToken is TaxToken {
     ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         maxWinMultiplier = _maxWinMultiplier;
         potPercent = _potPercent;
+        lotteryMaster = msg.sender;
     }
 
     /* ********************************************* INTERNAL ********************************************* */
@@ -53,7 +51,7 @@ contract LotteryToken is TaxToken {
     // OpenZeppelin ERC20 _update with only change being upkeep and entry calls.
     function _update(address from, address to, uint256 value) internal override {
         // Every transfer calls to upkeep the lottery.
-        ILotteryMaster(lotteryMaster).upkeep(0);
+        if (lotteryMaster != address(0)) ILotteryMaster(lotteryMaster).upkeep(0);
 
         uint256 tax = _determineTax(from, to, value);
         // We need to sell taxes before updating balances because user transfer
@@ -80,7 +78,7 @@ contract LotteryToken is TaxToken {
             }
 
             // Add lottery entry for the user receiving tokens.
-            if (taxed[from]) ILotteryMaster(lotteryMaster).addEntry(to, value);
+            if (taxed[from] && lotteryMaster != address(0)) ILotteryMaster(lotteryMaster).addEntry(to, value);
         }
 
         if (to == address(0)) {
