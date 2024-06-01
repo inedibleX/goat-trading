@@ -50,6 +50,7 @@ contract LotteryTokenMaster {
     constructor(address factory_, address weth_) {
         _factory = GoatV1Factory(factory_);
         _weth = weth_;
+        defaultUpkeepLoops = 5;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */
@@ -71,10 +72,7 @@ contract LotteryTokenMaster {
         uint256 _sellTax,
         GoatTypes.InitParams calldata initParams
     ) external returns (address tokenAddress, address pool) {
-        // We save tokenAmt in full tokens so let's add protection against small total supplies.
-        require(1_000_000 * _WEI <= _totalSupply);
         address owner = msg.sender;
-
         // Minimum chance 1 out of 1 million, maximum 1 out of 1
         if (_winChance > 1_000_000) {
             revert TokenErrors.InvalidWinChance();
@@ -128,8 +126,7 @@ contract LotteryTokenMaster {
             // Tell the token to send up to 100x the token trade to the user.
             if (winner) _wonLottery(entry.token, entry.user, uint256(entry.tokenAmt));
         }
-        // update entry index
-        if (startIndex + _loops < entriesLength) {
+        if ((startIndex + _loops) < entriesLength) {
             entryIndex += _loops;
         } else {
             entryIndex = entriesLength;

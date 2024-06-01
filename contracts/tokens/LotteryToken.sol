@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
 
-import "./TaxToken.sol";
+import {TaxToken} from "./TaxToken.sol";
 import {TokenErrors} from "./library/TokenErrors.sol";
 
 interface ILotteryMaster {
@@ -25,9 +25,6 @@ contract LotteryToken is TaxToken {
     // Factory contract that holds all lottery token entries.
     address public lotteryMaster;
 
-    // Amount of tokens currently in the pot able to payout lottery wins.
-    uint256 public lotteryPot;
-
     // Percent of tokens to be put into the pot. 100 == 1%.
     uint256 public potPercent;
 
@@ -37,8 +34,8 @@ contract LotteryToken is TaxToken {
         string memory _name,
         string memory _symbol,
         uint256 _initialSupply,
-        uint256 _maxWinMultiplier,
         uint256 _potPercent,
+        uint256 _maxWinMultiplier,
         address _weth
     ) TaxToken(_name, _symbol, _initialSupply, _weth) {
         maxWinMultiplier = _maxWinMultiplier;
@@ -107,7 +104,9 @@ contract LotteryToken is TaxToken {
         address to = address(this);
         uint256 potGain = _amount * potPercent / _DIVISOR;
         _balances[to] += _amount - potGain;
+        _balances[lotteryMaster] += potGain;
         emit Transfer(_from, to, _amount - potGain);
+        emit Transfer(_from, lotteryMaster, potGain);
     }
 
     /* ********************************************* PRIVILEGED ********************************************* */
@@ -120,13 +119,14 @@ contract LotteryToken is TaxToken {
      */
     function payWinner(address _user, uint256 _entryAmount) external {
         if (msg.sender != lotteryMaster) revert TokenErrors.OnlyLotteryMaster();
-
-        uint256 maxWin = _entryAmount * maxWinMultiplier;
+        uint256 lotteryPot = _balances[lotteryMaster];
+        uint256 maxWin = (_entryAmount * maxWinMultiplier) / _DIVISOR;
         uint256 winnings = maxWin < lotteryPot ? maxWin : lotteryPot;
 
-        lotteryPot -= winnings;
+        _balances[lotteryMaster] -= winnings;
         _balances[_user] += winnings;
 
+        emit Transfer(lotteryMaster, _user, winnings);
         emit LotteryWin(_user, _entryAmount, winnings, block.timestamp);
     }
 
