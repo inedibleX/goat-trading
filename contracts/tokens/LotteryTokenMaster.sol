@@ -47,10 +47,10 @@ contract LotteryTokenMaster {
         uint96 drawBlock;
     }
 
-    constructor(address factory_, address weth_) {
+    constructor(address factory_, address weth_, uint256 defaultUpkeepLoops_) {
         _factory = GoatV1Factory(factory_);
         _weth = weth_;
-        defaultUpkeepLoops = 5;
+        defaultUpkeepLoops = defaultUpkeepLoops_;
     }
 
     /* ********************************************* TOKEN CREATION ********************************************* */

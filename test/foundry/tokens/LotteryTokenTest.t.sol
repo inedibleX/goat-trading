@@ -44,7 +44,7 @@ contract LotteryTokenTest is Test {
         });
         weth = new MockWETH();
         factory = new GoatV1Factory(address(weth), new address[](0), new address[](0));
-        master = new LotteryTokenMaster(address(factory), address(weth));
+        master = new LotteryTokenMaster(address(factory), address(weth), 5);
     }
 
     struct LotteryTokenInitValues {
