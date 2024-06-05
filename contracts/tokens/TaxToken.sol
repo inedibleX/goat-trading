@@ -157,7 +157,7 @@ contract TaxToken is ERC20, Ownable {
         path[0] = address(this);
         path[1] = _WETH;
         // taxes should not be sold if the goat pair is still in vesting period
-        address pairAddress = IGoatV1Factory(IGoatV1Router(dex).factory()).getPair(address(this), _WETH);
+        address pairAddress = IGoatV1Factory(IGoatV1Router(dex).factory()).getPair(path[0], path[1]);
         (bool success, bytes memory data) = pairAddress.staticcall(abi.encodeWithSignature("vestingUntil()"));
         if (success) {
             // if vesting is still ongoing, don't sell taxes
