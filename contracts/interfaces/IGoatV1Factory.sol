@@ -6,6 +6,7 @@ import {GoatTypes} from "./../library/GoatTypes.sol";
 interface IGoatV1Factory {
     function weth() external view returns (address);
     function getPool(address token) external view returns (address);
+    function getPair(address token0, address token1) external view returns (address);
     function treasury() external view returns (address);
     function pendingTreasury() external view returns (address);
     function minimumCollectableFees() external view returns (uint256);

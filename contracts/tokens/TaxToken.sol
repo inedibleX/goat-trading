@@ -6,6 +6,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import "./ERC20.sol";
 import {TokenErrors} from "./library/TokenErrors.sol";
 import {IGoatV1Router} from "./../interfaces/IGoatV1Router.sol";
+import {IGoatV1Factory} from "./../interfaces/IGoatV1Factory.sol";
 
 /**
  * @title Plain Tax Token
@@ -155,6 +156,16 @@ contract TaxToken is ERC20, Ownable {
         address[] memory path = new address[](2);
         path[0] = address(this);
         path[1] = _WETH;
+        // taxes should not be sold if the goat pair is still in vesting period
+        address pairAddress = IGoatV1Factory(IGoatV1Router(dex).factory()).getPair(address(this), _WETH);
+        (bool success, bytes memory data) = pairAddress.staticcall(abi.encodeWithSignature("vestingUntil()"));
+        if (success) {
+            // if vesting is still ongoing, don't sell taxes
+            (uint256 vestingUntil) = abi.decode(data, (uint256));
+            if (vestingUntil > block.timestamp) {
+                return;
+            }
+        }
 
         // Try/catch because this will revert on buy txns because of reentrancy
         try IGoatV1Router(dex).swapExactTokensForTokensSupportingFeeOnTransferTokens(
