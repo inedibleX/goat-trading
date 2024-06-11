@@ -11,6 +11,8 @@ import {IGoatV1Pair} from "./../interfaces/IGoatV1Pair.sol";
  * @notice Utility contract so the frontend can easily check many total supplies at once.
  */
 contract GoatHelper {
+    error GetReservesFailed();
+
     address internal immutable _ROUTER;
     address internal immutable _FACTORY;
     address internal immutable _WETH;
@@ -237,7 +239,11 @@ contract GoatHelper {
         returns (uint256 amountEthMin, uint256 amountTokenMin)
     {
         address pair = IGoatV1Factory(_FACTORY).getPool(token);
-        (uint112 reserveEth, uint112 reserveToken,) = IGoatV1Pair(pair).getReserves();
+        (bool success, bytes memory data) = pair.staticcall(abi.encodeWithSignature("getReserves()"));
+        if (!success) {
+            revert GetReservesFailed();
+        }
+        (uint112 reserveEth, uint112 reserveToken) = abi.decode(data, (uint112, uint112));
         uint256 totalSupply = IGoatV1Pair(pair).totalSupply();
         uint256 amountEth = (lpAmount * reserveEth) / totalSupply;
         uint256 amountToken = (lpAmount * reserveToken) / totalSupply;
