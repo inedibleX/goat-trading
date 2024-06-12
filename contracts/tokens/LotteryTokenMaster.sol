@@ -119,7 +119,7 @@ contract LotteryTokenMaster {
 
             // Must have reached draw block. If not, end of checks.
             if (entry.drawBlock >= block.number) {
-                entryIndex = i + 1;
+                entryIndex = i;
                 return;
             }
 
