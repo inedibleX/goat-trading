@@ -114,11 +114,14 @@ contract LotteryTokenMaster {
         uint256 startIndex = entryIndex;
         uint256 entriesLength = entries.length;
 
-        for (uint256 i = startIndex; i < _loops && i < entriesLength; i++) {
+        for (uint256 i = startIndex; i < startIndex + _loops && i < entriesLength; i++) {
             Entry memory entry = entries[i];
 
             // Must have reached draw block. If not, end of checks.
-            if (entry.drawBlock > block.number) return;
+            if (entry.drawBlock >= block.number) {
+                entryIndex = i + 1;
+                return;
+            }
 
             // Check to make sure draw block isn't too old and if hash is a winner.
             bool winner = _checkWin(entry.token, entry.user, uint256(entry.drawBlock));
